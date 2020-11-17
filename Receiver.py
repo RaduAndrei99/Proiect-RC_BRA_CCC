@@ -14,7 +14,7 @@ s.bind((IP, PORT))
 # data[1:24] de la indexul 2 pana in indexul 24
 
 packet = SWPacket(24, True)
-fileWriter = FileWriter("")
+fileWriter = FileWriter("out.txt")
 unPackingSystem = UnPackingSystem()
 
 name = ""
@@ -33,9 +33,10 @@ while True:
 
 	elif type == 0:
 		if fileWriter.isOpen() == False:
-			fileWriter.setFileName(name)
+			#fileWriter.setFileName(name)
 			fileWriter.openFile()
 
+		print(b"data: " + data)
 		if data == "":
 			break
 

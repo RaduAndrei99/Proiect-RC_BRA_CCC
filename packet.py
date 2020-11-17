@@ -27,3 +27,6 @@ class SWPacket:
 	def set_packet_number(self, pk_number):
 		if(pk_number < pow(2, 24)):
 			self.__byte_array[1:4] = pk_number.to_bytes(3, byteorder="big")
+
+	def create_packet(self, bytes_array):
+		self.__byte_array[0:24] = bytes_array[0:24]

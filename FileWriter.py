@@ -17,7 +17,7 @@ class FileWriter:
 		self.__output_file = None
 
 	def writeInFile(self, data):
-		 self.__filename.write(data)
+		 self.__output_file.write(data)
 
 	def setFileName(self, name):
 		name.replace('\0', '')

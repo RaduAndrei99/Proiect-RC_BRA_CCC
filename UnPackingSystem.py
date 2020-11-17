@@ -8,9 +8,9 @@ class UnPackingSystem:
 
 	def Unpack(self, packet):
 
-		type = int.from_bytes(packet.data[:1], "big")
-		nrPacket = int.from_bytes(packet.data[1:4], "big")
-		data = packet.data[4:24]
+		type = int.from_bytes(packet.get_data()[:1], "big")
+		nrPacket = int.from_bytes(packet.get_data()[1:4], "big")
+		data = packet.get_data()[4:24]
 
 		return (type, nrPacket, data)
 
