@@ -6,11 +6,11 @@ class UnPackingSystem:
 	def __init__(self):
 		pass
 
-	def Unpack(self, packet):
+	def unpack(self, packet):
 
 		type = int.from_bytes(packet.get_data()[:1], "big")
-		nrPacket = int.from_bytes(packet.get_data()[1:4], "big")
+		nr_packet = int.from_bytes(packet.get_data()[1:4], "big")
 		data = packet.get_data()[4:24]
 
-		return (type, nrPacket, data)
+		return (type, nr_packet, data)
 
