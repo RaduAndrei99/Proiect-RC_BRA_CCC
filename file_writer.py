@@ -12,26 +12,26 @@ class FileWriter:
 
 	def __init__(self, filename):
 
-		self.__isOpen = False
+		self.__is_open = False
 		self.__filename = filename
 		self.__output_file = None
 
-	def writeInFile(self, data):
+	def write_in_file(self, data):
 		 self.__output_file.write(data)
 
-	def setFileName(self, name):
+	def set_file_name(self, name):
 		name.replace('\0', '')
 		name += '\0'
 
 		self.__filename = name
 
-	def openFile(self):
-		self.__isOpen = True
+	def open_file(self):
+		self.__is_open = True
 		self.__output_file = open(self.__filename, "wb")
 
-	def closeFile(self):
+	def close_file(self):
 		self.__output_file.close()
 
-	def isOpen(self):
-		return self.__isOpen
+	def is_open(self):
+		return self.__is_open
 
