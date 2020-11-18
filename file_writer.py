@@ -20,8 +20,6 @@ class FileWriter:
 		 self.__output_file.write(data)
 
 	def set_file_name(self, name):
-		name.replace('\0', '')
-		name += '\0'
 
 		self.__filename = name
 
