@@ -30,3 +30,7 @@ class SWPacket:
 
 	def create_packet(self, bytes_array):
 		self.__byte_array[0:24] = bytes_array[0:24]
+
+	def make_end_packet(self):
+		self.__byte_array[0] = 0xFF
+		

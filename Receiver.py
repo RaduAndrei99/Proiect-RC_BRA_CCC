@@ -14,7 +14,7 @@ s.bind((IP, PORT))
 # data[1:24] de la indexul 2 pana in indexul 24
 
 packet = SWPacket(24, True)
-fileWriter = FileWriter("out.txt")
+fileWriter = FileWriter("out.exe") #fisier primit, momentan cu numele hard-coded
 unPackingSystem = UnPackingSystem()
 
 name = ""
@@ -25,7 +25,7 @@ while True:
 	
 	print(dataReaded)
 
-	packet.store_data(dataReaded)
+	packet.create_packet(dataReaded)
 	type, nrPacket, data = unPackingSystem.Unpack(packet)
 
 	if type == 1:
@@ -36,11 +36,12 @@ while True:
 			#fileWriter.setFileName(name)
 			fileWriter.openFile()
 
-		print(b"data: " + data)
-		if data == "":
+		if data == b"":
 			break
 
 		fileWriter.writeInFile(data)
+	else:
+		break
 
 fileWriter.closeFile()
 s.close()

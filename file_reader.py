@@ -7,12 +7,13 @@ class FileReader:
 	def __init__(self, filename, bytes_per_read):
 		self.__filename = filename
 		self.__file = None
-		self._size_in_bytes = 0
+		self.__size_in_bytes = 0
 		self.__no_of_bytes_per_read = bytes_per_read
 
 	def open(self):
 		self.__file=open(self.__filename, 'rb')
-		self._size_in_bytes = Path(self.__filename).stat().st_size
+		self.__size_in_bytes = Path(self.__filename).stat().st_size
+		print("Dimensiune citita: " + str(self.__size_in_bytes))
 
 	def close(self):
 		self.__file.close()
@@ -23,4 +24,5 @@ class FileReader:
 	def get_bytes_per_read(self):
 		return self.__no_of_bytes_per_read
 
-
+	def get_file_size_in_bytes(self):
+		return self.__size_in_bytes
