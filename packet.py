@@ -1,11 +1,11 @@
 """
 	Clasa folosita pentru a defini un pachet. 
-	Format: 24 de octeti
+	Format: 36 de octeti
 		- primul octet: 0x1 - pachet de initializare
 						0x0 - pachet ce contine date
 
 		- urmatorii trei octeti: indexul pachetului (pot fi maxim 16.777.216 de pachete pentru un fisier)
-		- ultimii 20 de octeti: 
+		- ultimii 32 de octeti: 
 								daca pachetul este de tip initializare, va contine numele fisierului
 								daca pachetul este de tip data, va contine date efective 
 """
