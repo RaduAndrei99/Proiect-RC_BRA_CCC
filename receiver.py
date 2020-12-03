@@ -87,6 +87,9 @@ class Receiver:
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
+			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
+			self.__s.sendto(ack_packet.get_header(), address)
+
 			if type == 0:
 				name += data.decode("ascii")
 
@@ -94,14 +97,10 @@ class Receiver:
 				if self.__file_writer.is_open() == False:
 					self.__file_writer.set_file_name(name)
 					self.__file_writer.open_file()
-	
-				ack_packet.set_packet_number(nr_packet)
-				self.__s.sendto(ack_packet.get_header(), address)
 
-				if nr_packet == self.last_packet_received + 1:	
-					self.last_packet_received += 1
+				if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
 					self.__file_writer.write_in_file(data)
-
+					self.last_packet_received += 1
 
 					while self.last_packet_received in self.SWR.keys():
 						self.__file_writer.write_in_file(self.SWR[self.last_packet_received])
