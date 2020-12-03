@@ -18,7 +18,7 @@ class PackingSystem:
 		new_packet.set_packet_number(self.__packet_number)
 		self.__packet_number += 1
 		new_packet.store_data(self.__file_reader.read())
-		return new_packet.get_data()
+		return new_packet
 
 	def open_file(self, source_file):
 		self.__file_reader = FileReader(source_file, self.__data_size_in_bytes)
@@ -40,7 +40,10 @@ class PackingSystem:
 		end_packet.set_packet_number(self.__packet_number)
 
 
-		return end_packet.get_data()
+		return end_packet
+
+	def get_current_packet_number(self):
+		return self.__packet_number
 
 
 
