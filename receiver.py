@@ -1,6 +1,8 @@
 import os
 import socket
 import sys
+import threading
+
 from file_writer import FileWriter
 from unpacking_system import UnPackingSystem
 from packet import SWPacket, PacketType
@@ -34,9 +36,14 @@ class Receiver:
 	DATA_SIZE = 32
 	PACKET_HEADER_SIZE = 4
 
+	SW_SIZE = 10
+
 	def __init__(self, rcv_ip, rcv_port):
 		self.__receiver_ip = rcv_ip
 		self.__receiver_port = rcv_port
+
+		self.SWR = {}
+		self.last_packet_received = -1
 
 		self.__file_writer = FileWriter("")
 		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE, self.DATA_SIZE)
@@ -45,20 +52,21 @@ class Receiver:
 
 		check_socket(af_type, sock_type)
 
-		self.s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
-		self.s.bind((self.__receiver_ip, self.__receiver_port))
+		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
+		self.__s.bind((self.__receiver_ip, self.__receiver_port))
 
 	def start_receiver(self):
 		
-		packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
 
 		while True:
-			data_readed, address = self.s.recvfrom(self.DATA_PACKET_SIZE)
+			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
-			packet.create_packet(data_readed)
-			type, nr_packet, data = self.__ups.unpack(packet)
+			data_packet.create_packet(data_readed)
+			type, nr_packet, data = self.__ups.unpack(data_packet)
 
 			if type == 0:
 				name += data.decode("ascii")
@@ -67,16 +75,33 @@ class Receiver:
 				if self.__file_writer.is_open() == False:
 					self.__file_writer.set_file_name(name)
 					self.__file_writer.open_file()
+	
+				ack_packet.set_packet_number(nr_packet)
+				self.__s.sendto(ack_packet.get_header(), address)
 
-				#Threading
 
-				self.__file_writer.write_in_file(data)
+				if nr_packet == self.last_packet_received + 1:
+					
+					self.last_packet_received += 1
+					self.__file_writer.write_in_file(data)
+
+
+					while self.last_packet_received in self.SWR.keys():
+						self.__file_writer.write_in_file(self.SWR[self.last_packet_received])
+						del self.SWR[self.last_packet_received]
+						self.last_packet_received += 1
+
+				elif nr_packet > self.last_packet_received + 1:
+					self.SWR[nr_packet] = data
+
+
+			
 
 			else:
 				break
 
 		self.__file_writer.close_file()
-		self.s.close()
+		self.__s.close()
 
 
 if __name__ == '__main__':

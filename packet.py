@@ -13,13 +13,13 @@
 import enum
 
 class PacketType(enum.Enum):
-   INIT = 0
-   DATA = 1
-   ACK = 2
+	INIT = 0
+	DATA = 1
+	ACK = 2
 
 class SWPacket:
 	def __init__(self, pk_size, data_size, header_size, packet_type: PacketType):
-		if data_size < pk_size and header_size < pk_size:
+		if data_size < pk_size and header_size <= pk_size:
 			self.__byte_array = bytearray(pk_size)
 			self.__data_size = data_size
 
@@ -27,11 +27,9 @@ class SWPacket:
 			self.__data_size = data_size
 			self.__header_size = header_size
 
-		else:
-			pass
 
 		if packet_type == PacketType.INIT:
-			self.__byte_array[0] = 0x0	
+			self.__byte_array[0] = 0x0
 		elif packet_type == PacketType.DATA:
 			self.__byte_array[0] = 0x1
 		elif packet_type == PacketType.ACK:
@@ -39,6 +37,9 @@ class SWPacket:
 
 	def get_data(self):
 		return self.__byte_array
+
+	def get_header(self):
+		return self.__byte_array[:self.__header_size]
 
 	def store_data(self, data_array_in_bytes):
 		self.__byte_array[4:self.__package_size] = data_array_in_bytes

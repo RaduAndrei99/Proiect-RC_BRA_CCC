@@ -30,6 +30,9 @@ class PackingSystem:
 	def get_file_size(self):
 		return self.__file_reader.get_file_size_in_bytes()
 
+	def get_current_packet_number(self):
+		return self.__packet_number
+
 	def get_data_size_in_bytes(self):
 		return self.__data_size_in_bytes
 	
