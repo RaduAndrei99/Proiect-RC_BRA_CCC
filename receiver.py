@@ -23,13 +23,14 @@ ups = UnPackingSystem()
 
 
 name = "new_"
-
+count = 0
+ 
 while True:
 	data_readed, address = s.recvfrom(packet_size) # Dimensiunea buffer-ului este de 1024 24
 										# Blocheaza thread-ul pana la primirea unui mesaj
 	
-	#print(data_readed)
-
+	# print(data_readed)
+	count+=1
 	packet.create_packet(data_readed)
 	type, nr_packet, data = ups.unpack(packet)
 
@@ -44,6 +45,7 @@ while True:
 	else:
 		break
 
+print("Numarul de pachete este: " + str(count))
 file_writer.close_file()
 s.close()
 
