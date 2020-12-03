@@ -6,7 +6,7 @@ from time import sleep
 import threading
 from unpacking_system import UnPackingSystem
 from queue import Queue
-from threading import Condition
+from threading import Condition, Lock
 
 IP = "127.0.0.1"
 PORT = 1234
@@ -39,6 +39,7 @@ def check_socket(af_type, sock_type):
 		sys.exit(1)
 
 class Sender:
+
 	def __init__(self, snd_ip, snd_port):
 		self.__sender_ip = snd_ip #ip-ul sender-ului
 		self.__sender_port = snd_port #port-ul sender-ului
@@ -50,6 +51,7 @@ class Sender:
 
 		self.__current_packages = 0 #numarul curent de pachete care asteapta ACK
 		self.__packages_sent_and_received = 0 #numarul de pachete trimise si validate la un moment dat
+		self.__lowest_window_package = 0 #pachetul cu numarul de ordine cel mai mic din fereastra curenta
 
 		self.__packet_size = 36 #lungimea pachetului 
 		self.__packet_data_size = 32 #lungimea datelor dintr-un pachet
@@ -64,6 +66,10 @@ class Sender:
 		self.__buffer = Queue(maxsize = self.__QUEUE_SIZE) #buffer-ul de trimitere
 
 		self.__condition = Condition() #numarul de pachete care au fost puse in buffer
+
+		self.__recent_packets_sent = {}
+
+		self.__mutex = Lock()
 
 
 	def create_socket(self, af_type, sock_type):
@@ -91,28 +97,31 @@ class Sender:
 		while 1:
 			data_readed, address = self.__s.recvfrom(4)
 			packet.create_packet(data_readed)
-
-			if data_readed[1] == PacketType.ACK:
-				self.__current_packages -= 1
-				self.__packages_sent_and_received += 1
-
 			package_type, nr_packet, data = self.__ups.unpack(packet)
-			print("Am primit raspuns pozitiv pentru: " + str(nr_packet))
+
+			if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
+				self.__mutex.acquire()
+				try:
+					self.__current_packages -= 1
+				finally:
+					self.__mutex.release()
+				self.__packages_sent_and_received += 1
+				self.__lowest_window_package = nr_packet
+
+			#package_type, nr_packet, data = self.__ups.unpack(packet)
+			#print("Am primit raspuns pozitiv pentru: " + str(nr_packet))
 
 	def send_packages_to_buffer(self):	
 		count = 0
 
-		self.__ps.open_file("test.pdf") # fisier de transmis, momentan hard-coded
+		self.__ps.open_file("music.mp3") # fisier de transmis, momentan hard-coded
 
 		first_packet = SWPacket(packet_size, packet_data_size, packet_header_size, packet_type=PacketType.INIT)
-		first_packet.store_data(b'test.pdf')
+		first_packet.store_data(b'music.mp3')
 		print(first_packet.get_data())
 		count += 1
-		#self.__s.sendto(first_packet.get_data(), (IP, PORT) )
 		self.__buffer.put(first_packet)
-		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes() + 1)):
-			#self.__recent_packets_sent[self.__ps.get_current_packet_number()] = ret
-			#self.__s.sendto(ret, (IP, PORT) )
+		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
 			self.__condition.acquire()
 			if self.__buffer.qsize() == self.__QUEUE_SIZE:
 				self.__condition.wait()
@@ -122,7 +131,6 @@ class Sender:
 			self.__condition.release()
 
 
-		#self.__s.sendto(self.__ps.get_end_file_packet(), (IP, PORT))
 		self.__buffer.put(self.__ps.get_end_file_packet())
 
 		count += 1
@@ -136,18 +144,24 @@ class Sender:
 	def send_files_with_SW(self):
 		self.__packages_sent_and_received = 0
 		while self.__packages_sent_and_received < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes() + 1) + 2:
-			if self.__current_packages < self.__window_size:
+			if self.__current_packages <= self.__window_size:
 				self.__condition.acquire()
 				if self.__buffer.qsize() == 0:
+					#print("Coada este goala, astept...")
 					self.__condition.wait()
-				self.__s.sendto(self.__buffer.get(), (IP, PORT))
-				self.__current_packages += 1
+				self.__s.sendto(self.__buffer.get().get_data(), (IP, PORT))
+
+				self.__mutex.acquire()
+				try:
+					self.__current_packages += 1
+				finally:
+					self.__mutex.release()
+
 				self.__condition.notify()
 				self.__condition.release()
 
+
 		self.__s.close()
-
-
 
 if __name__ == '__main__':
 	sender = Sender("127.0.0.1", 1235)
