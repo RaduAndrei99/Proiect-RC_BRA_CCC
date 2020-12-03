@@ -9,8 +9,16 @@
 								daca pachetul este de tip initializare, va contine numele fisierului
 								daca pachetul este de tip data, va contine date efective 
 """
+
+import enum
+
+class PacketType(enum.Enum):
+   INIT = 0
+   DATA = 1
+   ACK = 2
+
 class SWPacket:
-	def __init__(self, pk_size, data_size, header_size, data_packet: bool):
+	def __init__(self, pk_size, data_size, header_size, packet_type: PacketType):
 		if data_size < pk_size and header_size < pk_size:
 			self.__byte_array = bytearray(pk_size)
 			self.__data_size = data_size
@@ -22,10 +30,12 @@ class SWPacket:
 		else:
 			pass
 
-		if(data_packet):
-			self.__byte_array[0] = 0x0
-		else:
+		if packet_type == PacketType.INIT:
+			self.__byte_array[0] = 0x0	
+		elif packet_type == PacketType.DATA:
 			self.__byte_array[0] = 0x1
+		elif packet_type == PacketType.ACK:
+			self.__byte_array[0] = 0x2
 
 	def get_data(self):
 		return self.__byte_array

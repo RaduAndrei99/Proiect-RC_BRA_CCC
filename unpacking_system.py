@@ -2,9 +2,9 @@
 # Clasa permite despachetarea unui pachet primit
 
 class UnPackingSystem:
-	def __init__(self):
-		self.__packet_size_in_bytes = 36
-		self.__data_size_in_bytes = 32
+	def __init__(self, packet_size_in_bytes, data_size_in_bytes):
+		self.__packet_size_in_bytes = packet_size_in_bytes
+		self.__data_size_in_bytes = data_size_in_bytes
 
 		self.__packet_number = 0
 

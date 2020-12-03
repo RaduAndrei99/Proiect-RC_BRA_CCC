@@ -1,5 +1,5 @@
 from file_reader import FileReader
-from packet import SWPacket
+from packet import SWPacket, PacketType
 
 """
 	Clasa folosita pentru a impacheta datele dintr-un fisier
@@ -14,7 +14,7 @@ class PackingSystem:
 		self.__header_size_in_bytes = 4
 
 	def pack_data(self):
-		new_packet = SWPacket(self.__packet_size_in_bytes, self.__data_size_in_bytes, self.__header_size_in_bytes, data_packet=True)
+		new_packet = SWPacket(self.__packet_size_in_bytes, self.__data_size_in_bytes, self.__header_size_in_bytes, packet_type=PacketType.DATA)
 		new_packet.set_packet_number(self.__packet_number)
 		self.__packet_number += 1
 		new_packet.store_data(self.__file_reader.read())
@@ -34,7 +34,7 @@ class PackingSystem:
 		return self.__data_size_in_bytes
 	
 	def get_end_file_packet(self):
-		end_packet = SWPacket(self.__packet_size_in_bytes, self.__data_size_in_bytes, self.__header_size_in_bytes, data_packet=True)
+		end_packet = SWPacket(self.__packet_size_in_bytes, self.__data_size_in_bytes, self.__header_size_in_bytes, packet_type=PacketType.DATA)
 
 		end_packet.make_end_packet()
 		end_packet.set_packet_number(self.__packet_number)
