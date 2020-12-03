@@ -3,6 +3,7 @@ import socket
 import sys
 import threading
 from time import sleep
+import random
 
 from file_writer import FileWriter
 from unpacking_system import UnPackingSystem
@@ -26,10 +27,24 @@ def check_socket(af_type, sock_type):
 		if sock_type != "SOCK_STREAM" and sock_type != "SOCK_DGRAM":
 			raise ValueError("Invalid socket type!")
 
-	except:
+	except Exception as e:
+		print(e)
 		sys.exit(1)
 
+def is_packet_lost(probability):
+
+	try:
+		if probability < 0 or probability > 100:
+			raise ValueError("Invalid probability! Expect: 0 to 100.")
+	except Exception as e:
+		print(e)
+		sys.exit(1)
+
+	return (random.randint(0, 100) <= probability)
+
 class Receiver:
+
+	LOSING_PACKETS_PROBABILITY = 10
 
 	DATA_PACKET_SIZE = 36
 	ACK_PACKET_SIZE = 4
@@ -66,9 +81,11 @@ class Receiver:
 		while True:
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
+			if is_packet_lost(self.LOSING_PACKETS_PROBABILITY): # Verificam daca vom pierde intentionat acest pachet
+				continue
+
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
-			#print("Numar pachet: " + str(nr_packet))
 
 			if type == 0:
 				name += data.decode("ascii")
@@ -105,7 +122,4 @@ if __name__ == '__main__':
 	receiver = Receiver("127.0.0.1", 1234)
 	receiver.create_socket("AF_INET", "SOCK_DGRAM")
 	receiver.start_receiver()
-
-
-
 
