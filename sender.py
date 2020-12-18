@@ -2,7 +2,7 @@ import socket
 import sys
 from packing_system import PackingSystem
 from packet import SWPacket, PacketType
-from time import sleep 
+import time
 import threading
 from unpacking_system import UnPackingSystem
 from queue import Queue
@@ -58,7 +58,6 @@ class Sender:
 		self.__packet_header_size = 4 #lungimea header-ului din pachet
 
 		self.__recent_packets_sent = {} #un dictionar folosit pentru a stoca pachetele recent trimise pentru a le avea la "indemana" in cazul in care trebuie sa fie retransmise
-
 		self.__file_send = False #variabila ce indica daca un fisier s-a trimis sau nu
 
 		self.__QUEUE_SIZE = 1000 #lungimea buffer-ului de trimitere
@@ -70,6 +69,8 @@ class Sender:
 		self.__recent_packets_sent = {}
 
 		self.__mutex = Lock()
+
+		self.__timeout_value = 1000
 
 
 	def create_socket(self, af_type, sock_type):
@@ -92,6 +93,7 @@ class Sender:
 		thread_2.join()
 		thread_3.join()
 
+
 	def wait_for_ACK(self):
 		packet = SWPacket(4,0,4,packet_type=PacketType.ACK)
 		while 1:
@@ -105,8 +107,12 @@ class Sender:
 					self.__current_packages -= 1
 				finally:
 					self.__mutex.release()
+					
 				self.__packages_sent_and_received += 1
-				self.__lowest_window_package = nr_packet
+
+				if nr_packet == self.__lowest_window_package:
+					self.__lowest_window_package = self.__lowest_window_package + 1
+				
 
 			#package_type, nr_packet, data = self.__ups.unpack(packet)
 			#print("Am primit raspuns pozitiv pentru: " + str(nr_packet))
@@ -147,9 +153,12 @@ class Sender:
 			if self.__current_packages <= self.__window_size:
 				self.__condition.acquire()
 				if self.__buffer.qsize() == 0:
-					#print("Coada este goala, astept...")
 					self.__condition.wait()
-				self.__s.sendto(self.__buffer.get().get_data(), (IP, PORT))
+				packet_to_send = self.__buffer.get()
+				self.__s.sendto(packet_to_send.get_data(), (IP, PORT))
+				print("Trimit " + str(packet_to_send.get_packet_number()))
+				self.__condition.notify()
+				self.__condition.release()
 
 				self.__mutex.acquire()
 				try:
@@ -157,11 +166,10 @@ class Sender:
 				finally:
 					self.__mutex.release()
 
-				self.__condition.notify()
-				self.__condition.release()
-
 
 		self.__s.close()
+
+			
 
 if __name__ == '__main__':
 	sender = Sender("127.0.0.1", 1235)

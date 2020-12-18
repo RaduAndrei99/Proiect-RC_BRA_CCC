@@ -32,7 +32,10 @@ def check_socket(af_type, sock_type):
 		sys.exit(1)
 
 def is_packet_lost(probability):
+<<<<<<< HEAD
 
+=======
+>>>>>>> 868e8c7c674a9a072db6aed4ae4a5cf7323020d2
 	try:
 		if probability < 0 or probability > 100:
 			raise ValueError("Invalid probability! Expect: 0 to 100.")
@@ -40,7 +43,11 @@ def is_packet_lost(probability):
 		print(e)
 		sys.exit(1)
 
+<<<<<<< HEAD
 	return (random.randint(0, 100) <= probability)
+=======
+	return (random.randint(0, 100) < probability)
+>>>>>>> 868e8c7c674a9a072db6aed4ae4a5cf7323020d2
 
 class Receiver:
 
@@ -102,9 +109,15 @@ class Receiver:
 					self.__file_writer.write_in_file(data)
 					self.last_packet_received += 1
 
+<<<<<<< HEAD
 					while self.last_packet_received in self.SWR.keys():
 						self.__file_writer.write_in_file(self.SWR[self.last_packet_received])
 						del self.SWR[self.last_packet_received]
+=======
+					while self.last_packet_received + 1 in self.SWR.keys():
+						self.__file_writer.write_in_file(self.SWR[self.last_packet_received + 1])
+						del self.SWR[self.last_packet_received + 1]
+>>>>>>> 868e8c7c674a9a072db6aed4ae4a5cf7323020d2
 						self.last_packet_received += 1
 
 				elif nr_packet > self.last_packet_received + 1:
@@ -121,4 +134,7 @@ if __name__ == '__main__':
 	receiver = Receiver("127.0.0.1", 1234)
 	receiver.create_socket("AF_INET", "SOCK_DGRAM")
 	receiver.start_receiver()
+<<<<<<< HEAD
 
+=======
+>>>>>>> 868e8c7c674a9a072db6aed4ae4a5cf7323020d2

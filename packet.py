@@ -39,6 +39,9 @@ class SWPacket:
 	def get_data(self):
 		return self.__byte_array
 
+	def get_packet_number(self):
+		return int.from_bytes(self.__byte_array[1:4], "big")
+
 	def get_header(self):
 		return self.__byte_array[:self.__header_size]
 
