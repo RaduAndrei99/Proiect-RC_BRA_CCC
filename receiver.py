@@ -42,8 +42,7 @@ def is_packet_lost(probability):
 	return (random.randint(0, 100) < probability)
 
 class Receiver:
-
-	LOSING_PACKETS_PROBABILITY = 10
+	LOSING_PACKETS_PROBABILITY = 3 #in procente
 
 	DATA_PACKET_SIZE = 36
 	ACK_PACKET_SIZE = 4
@@ -85,6 +84,8 @@ class Receiver:
 
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
+
+			print("Am primit " + str(nr_packet))
 
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 			self.__s.sendto(ack_packet.get_header(), address)
