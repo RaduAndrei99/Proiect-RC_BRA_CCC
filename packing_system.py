@@ -9,7 +9,7 @@ class PackingSystem:
 		self.__packet_size_in_bytes = 36
 		self.__data_size_in_bytes = 32
 
-		self.__packet_number = 0
+		self.__packet_number = 1
 
 		self.__header_size_in_bytes = 4
 

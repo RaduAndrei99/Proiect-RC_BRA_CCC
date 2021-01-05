@@ -7,9 +7,11 @@ import threading
 from unpacking_system import UnPackingSystem
 from queue import Queue
 from threading import Condition, Lock
-
+import os
 IP = "127.0.0.1"
 PORT = 1234
+
+os.system('cls')
 
 packet_size = 36
 packet_data_size = 32
@@ -44,10 +46,13 @@ class Sender:
 		self.__sender_ip = snd_ip #ip-ul sender-ului
 		self.__sender_port = snd_port #port-ul sender-ului
 
+		self.__timeout_value = 5 #valoarea de timeout in secunde cat se asteapta confirmarea pentru primirea unui packet
+
 		self.__ps = PackingSystem() #obiectul pentru impachetarea fisierelor
 		self.__ups = UnPackingSystem(4, 0) #obiechtul pentru despachetare
 
 		self.__window_size = 10 #lungimea ferestrei
+		self.__next_lowest_package = 1 #valoarea pana la urmatorul cel mai mic pachet din fereastra
 
 		self.__current_packages = 0 #numarul curent de pachete care asteapta ACK
 		self.__packages_sent_and_received = 0 #numarul de pachete trimise si validate la un moment dat
@@ -66,12 +71,7 @@ class Sender:
 
 		self.__condition = Condition() #numarul de pachete care au fost puse in buffer
 
-		self.__recent_packets_sent = {}
-
 		self.__mutex = Lock()
-
-		self.__timeout_value = 1000
-
 
 	def create_socket(self, af_type, sock_type):
 		check_socket(af_type, sock_type)
@@ -105,26 +105,27 @@ class Sender:
 				self.__mutex.acquire()
 				try:
 					self.__current_packages -= 1
+					self.__recent_packets_sent.pop(nr_packet)
 				finally:
 					self.__mutex.release()
 					
 				self.__packages_sent_and_received += 1
-
-				if nr_packet == self.__lowest_window_package:
-					self.__lowest_window_package = self.__lowest_window_package + 1
 				
+				if nr_packet == self.__lowest_window_package:
+					self.__lowest_window_package = self.__lowest_window_package + self.__next_lowest_package
+					self.__next_lowest_package = 1
+				else:
+					self.__next_lowest_package = nr_packet - self.__lowest_window_package
 
-			#package_type, nr_packet, data = self.__ups.unpack(packet)
-			#print("Am primit raspuns pozitiv pentru: " + str(nr_packet))
+				print("Am primit raspuns pozitiv pentru: " + str(nr_packet))
 
 	def send_packages_to_buffer(self):	
 		count = 0
 
-		self.__ps.open_file("music.mp3") # fisier de transmis, momentan hard-coded
+		self.__ps.open_file("sender.py") # fisier de transmis, momentan hard-coded
 
 		first_packet = SWPacket(packet_size, packet_data_size, packet_header_size, packet_type=PacketType.INIT)
-		first_packet.store_data(b'music.mp3')
-		print(first_packet.get_data())
+		first_packet.store_data(b'sender.py')
 		count += 1
 		self.__buffer.put(first_packet)
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
@@ -137,7 +138,7 @@ class Sender:
 			self.__condition.release()
 
 
-		self.__buffer.put(self.__ps.get_end_file_packet())
+		#self.__buffer.put(self.__ps.get_end_file_packet())
 
 		count += 1
 
@@ -147,24 +148,38 @@ class Sender:
 
 		self.__ps.close_file()
 
+	def packet_timeout(self, packet_number):
+		if packet_number in self.__recent_packets_sent:
+			print("Retrimit " + str(packet_number))
+			self.__s.sendto(self.__recent_packets_sent[packet_number], (IP, PORT))
+			threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_number]).start()
+
+
+
 	def send_files_with_SW(self):
 		self.__packages_sent_and_received = 0
+		no_of_packets = 1
 		while self.__packages_sent_and_received < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes() + 1) + 2:
-			if self.__current_packages <= self.__window_size:
+			if self.__current_packages <= self.__window_size and no_of_packets >= self.__lowest_window_package and no_of_packets < self.__lowest_window_package + self.__window_size:
 				self.__condition.acquire()
 				if self.__buffer.qsize() == 0:
 					self.__condition.wait()
 				packet_to_send = self.__buffer.get()
-				self.__s.sendto(packet_to_send.get_data(), (IP, PORT))
-				print("Trimit " + str(packet_to_send.get_packet_number()))
-				self.__condition.notify()
-				self.__condition.release()
 
 				self.__mutex.acquire()
 				try:
+					self.__recent_packets_sent[packet_to_send.get_packet_number()] = packet_to_send.get_data()
 					self.__current_packages += 1
 				finally:
 					self.__mutex.release()
+					
+				no_of_packets += 1
+				self.__s.sendto(packet_to_send.get_data(), (IP, PORT))
+				print("Trimit " + str(packet_to_send.get_packet_number()))
+				self.__condition.notify()
+				self.__condition.release()				
+
+				threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number()]).start()
 
 
 		self.__s.close()
