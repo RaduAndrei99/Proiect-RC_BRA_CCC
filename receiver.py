@@ -69,6 +69,21 @@ class Receiver:
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
 		self.__s.bind((self.__receiver_ip, self.__receiver_port))
 
+	def insert_in_sw(self, nr_packet, data):
+		if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
+			self.__file_writer.write_in_file(data)
+			self.last_packet_received += 1
+
+			while self.last_packet_received + 1 in self.SWR.keys():
+				self.__file_writer.write_in_file(self.SWR[self.last_packet_received + 1])
+				self.SWR.pop(self.last_packet_received + 1)
+				self.last_packet_received += 1
+				print ("Sunt in while-ul interior")
+
+		elif nr_packet > self.last_packet_received + 1:
+			self.SWR[nr_packet] = data
+
+
 	def start_receiver(self):
 		
 		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
@@ -77,10 +92,11 @@ class Receiver:
 		name = "new_"
 
 		while True:
+			#print("Astept urmatorul pachet:")
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
-			#if is_packet_lost(self.LOSING_PACKETS_PROBABILITY): # Verificam daca vom pierde intentionat acest pachet
-			#	continue
+			if is_packet_lost(self.LOSING_PACKETS_PROBABILITY): # Verificam daca vom pierde intentionat acest pachet
+				continue
 
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
@@ -91,6 +107,7 @@ class Receiver:
 			self.__s.sendto(ack_packet.get_header(), address)
 
 			if type == 0:
+				self.last_packet_received += 1
 				name += data.decode("ascii")
 
 			elif type == 1:
@@ -98,20 +115,14 @@ class Receiver:
 					self.__file_writer.set_file_name(name)
 					self.__file_writer.open_file()
 
-				if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
-					self.__file_writer.write_in_file(data)
-					self.last_packet_received += 1
-
-					while self.last_packet_received + 1 in self.SWR.keys():
-						self.__file_writer.write_in_file(self.SWR[self.last_packet_received + 1])
-						del self.SWR[self.last_packet_received + 1]
-						self.last_packet_received += 1
-
-				elif nr_packet > self.last_packet_received + 1:
-					self.SWR[nr_packet] = data
-
+				self.insert_in_sw(nr_packet, data)
 			else:
 				break
+
+			print("Dimensiunea ferestrei este: " + str(len(self.SWR)))
+			for x in self.SWR.keys():
+				print(x)
+
 
 		self.__file_writer.close_file()
 		self.__s.close()
