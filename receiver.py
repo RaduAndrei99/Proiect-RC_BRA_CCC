@@ -42,7 +42,7 @@ def is_packet_lost(probability):
 	return (random.randint(0, 99) < probability)
 
 class Receiver:
-	LOSING_PACKETS_PROBABILITY = 3 #in procente
+	LOSING_PACKETS_PROBABILITY = 1 #in procente
 
 	DATA_PACKET_SIZE = 36
 	ACK_PACKET_SIZE = 4
@@ -53,6 +53,9 @@ class Receiver:
 	SW_SIZE = 10
 
 	def __init__(self, rcv_ip, rcv_port):
+
+		self.is_running = True;
+
 		self.__receiver_ip = rcv_ip
 		self.__receiver_port = rcv_port
 
@@ -68,21 +71,6 @@ class Receiver:
 
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
 		self.__s.bind((self.__receiver_ip, self.__receiver_port))
-
-	def insert_in_sw(self, nr_packet, data):
-		if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
-			self.__file_writer.write_in_file(data)
-			self.last_packet_received += 1
-
-			while self.last_packet_received + 1 in self.SWR.keys():
-				self.__file_writer.write_in_file(self.SWR[self.last_packet_received + 1])
-				self.SWR.pop(self.last_packet_received + 1)
-				self.last_packet_received += 1
-				print ("Sunt in while-ul interior")
-
-		elif nr_packet > self.last_packet_received + 1:
-			self.SWR[nr_packet] = data
-
 
 	def start_receiver(self):
 		
@@ -102,22 +90,53 @@ class Receiver:
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
 			print("Am primit " + str(nr_packet))
-
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 			self.__s.sendto(ack_packet.get_header(), address)
 
-			if type == 0:
+			################################################
+
+			if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
+				
+				if type == PacketType.INIT:
+					name += data.decode("ascii")
+				elif type == PacketType.DATA:
+					if self.__file_writer.is_open() == False:
+						self.__file_writer.set_file_name(name)
+						self.__file_writer.open_file()
+					else:
+						self.__file_writer.write_in_file(data)
+				else:
+					print("Am primit ultimul pachet")
+					self.last_packet_received += 1
+					break;
+	
 				self.last_packet_received += 1
-				name += data.decode("ascii")
 
-			elif type == 1:
-				if self.__file_writer.is_open() == False:
-					self.__file_writer.set_file_name(name)
-					self.__file_writer.open_file()
+				while self.last_packet_received + 1 in self.SWR.keys():
 
-				self.insert_in_sw(nr_packet, data)
-			else:
-				break
+					(type, data) = self.SWR[self.last_packet_received + 1]
+					self.SWR.pop(self.last_packet_received + 1)
+
+					if type == PacketType.INIT:
+						name += data
+					elif type == PacketType.DATA:
+						if self.__file_writer.is_open() == False:
+							self.__file_writer.set_file_name(name)
+							self.__file_writer.open()
+						else:
+							self.__file_writer.write_in_file(data)
+					else:
+						self.last_packet_received += 1
+						print ("Am primit ultimul pachet in while-ul interior.")
+						break;
+
+					self.last_packet_received += 1
+					print ("Sunt in while-ul interior")
+
+			elif nr_packet > self.last_packet_received + 1:
+				self.SWR[nr_packet] = (type, data)
+
+			###################################################
 
 			print("Dimensiunea ferestrei este: " + str(len(self.SWR)))
 			for x in self.SWR.keys():
