@@ -42,7 +42,7 @@ def is_packet_lost(probability):
 	return (random.randint(0, 99) < probability)
 
 class Receiver:
-	LOSING_PACKETS_PROBABILITY = 1 #in procente
+	LOSING_PACKETS_PROBABILITY = 20 #in procente
 
 	DATA_PACKET_SIZE = 36
 	ACK_PACKET_SIZE = 4
@@ -79,7 +79,7 @@ class Receiver:
 
 		name = "new_"
 
-		while True:
+		while self.is_running:
 			#print("Astept urmatorul pachet:")
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
@@ -103,12 +103,14 @@ class Receiver:
 					if self.__file_writer.is_open() == False:
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
+						self.__file_writer.write_in_file(data)
 					else:
 						self.__file_writer.write_in_file(data)
 				else:
 					print("Am primit ultimul pachet")
 					self.last_packet_received += 1
-					break;
+					self.is_running = False
+					break
 	
 				self.last_packet_received += 1
 
@@ -122,13 +124,15 @@ class Receiver:
 					elif type == PacketType.DATA:
 						if self.__file_writer.is_open() == False:
 							self.__file_writer.set_file_name(name)
-							self.__file_writer.open()
+							self.__file_writer.open_file()
+							self.__file_writer.write_in_file(data)
 						else:
 							self.__file_writer.write_in_file(data)
 					else:
 						self.last_packet_received += 1
 						print ("Am primit ultimul pachet in while-ul interior.")
-						break;
+						self.is_running = False
+						break
 
 					self.last_packet_received += 1
 					print ("Sunt in while-ul interior")

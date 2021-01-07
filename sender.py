@@ -122,10 +122,10 @@ class Sender:
 	def send_packages_to_buffer(self):	
 		count = 0
 
-		self.__ps.open_file("sender.py") # fisier de transmis, momentan hard-coded
+		self.__ps.open_file("README.md") # fisier de transmis, momentan hard-coded
 
 		first_packet = SWPacket(packet_size, packet_data_size, packet_header_size, packet_type=PacketType.INIT)
-		first_packet.store_data(b'sender.py')
+		first_packet.store_data(b'README.md')
 		count += 1
 		self.__buffer.put(first_packet)
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
