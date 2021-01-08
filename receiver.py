@@ -33,6 +33,9 @@ def check_socket(af_type, sock_type):
 
 def is_packet_lost(probability):
 	try:
+		if probability == 0:
+			return False
+			
 		if probability < 0 or probability > 100:
 			raise ValueError("Invalid probability! Expect: 0 to 100.")
 	except Exception as e:
@@ -42,7 +45,7 @@ def is_packet_lost(probability):
 	return (random.randint(0, 99) < probability)
 
 class Receiver:
-	LOSING_PACKETS_PROBABILITY = 3 #in procente
+	LOSING_PACKETS_PROBABILITY = 3#in procente
 
 	DATA_PACKET_SIZE = 36
 	ACK_PACKET_SIZE = 4
@@ -92,7 +95,7 @@ class Receiver:
 		name = "new_"
 
 		while True:
-			#print("Astept urmatorul pachet:")
+			print("Astept urmatorul pachet:")
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
 			if is_packet_lost(self.LOSING_PACKETS_PROBABILITY): # Verificam daca vom pierde intentionat acest pachet

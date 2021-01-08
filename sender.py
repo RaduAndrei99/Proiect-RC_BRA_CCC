@@ -8,6 +8,9 @@ from unpacking_system import UnPackingSystem
 from queue import Queue
 from threading import Condition, Lock
 import os
+from datetime import datetime 
+
+
 IP = "127.0.0.1"
 PORT = 1234
 
@@ -73,6 +76,8 @@ class Sender:
 
 		self.__mutex = Lock()
 
+		self.__valid = False
+
 	def create_socket(self, af_type, sock_type):
 		check_socket(af_type, sock_type)
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
@@ -102,6 +107,7 @@ class Sender:
 			package_type, nr_packet, data = self.__ups.unpack(packet)
 
 			if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
+	
 				self.__mutex.acquire()
 				try:
 					self.__current_packages -= 1
@@ -110,22 +116,32 @@ class Sender:
 					self.__mutex.release()
 					
 				self.__packages_sent_and_received += 1
+
+				if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2:
+					if bool(self.__recent_packets_sent) == False:
+						self.__valid = True
+						break
 				
 				if nr_packet == self.__lowest_window_package:
 					self.__lowest_window_package = self.__lowest_window_package + self.__next_lowest_package
 					self.__next_lowest_package = 1
 				else:
-					self.__next_lowest_package = nr_packet - self.__lowest_window_package
+					if nr_packet - self.__lowest_window_package in self.__recent_packets_sent:
+						self.__next_lowest_package = nr_packet - self.__lowest_window_package 
+					else:
+						self.__next_lowest_package = nr_packet - self.__lowest_window_package + 1
 
-				print("Am primit raspuns pozitiv pentru: " + str(nr_packet))
+				print(str(datetime.now().time()) + " Am primit raspuns pozitiv pentru: " + str(nr_packet))
+		print("S-a terminat thread-ul care asteapta mesaje de ACK")
+
 
 	def send_packages_to_buffer(self):	
 		count = 0
 
-		self.__ps.open_file("music.mp3") # fisier de transmis, momentan hard-coded
+		self.__ps.open_file("receiver.py") # fisier de transmis, momentan hard-coded
 
 		first_packet = SWPacket(packet_size, packet_data_size, packet_header_size, packet_type=PacketType.INIT)
-		first_packet.store_data(b'music.mp3')
+		first_packet.store_data(b'receiver.py')
 		count += 1
 		self.__buffer.put(first_packet)
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
@@ -138,29 +154,30 @@ class Sender:
 			self.__condition.release()
 
 
-		#self.__buffer.put(self.__ps.get_end_file_packet())
+		self.__buffer.put(self.__ps.get_end_file_packet())
 
 		count += 1
 
 		print("Numarul de pachete puse in buffer este: " + str(count))
+		print("->" + str(int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3))
 
 		self.__packages_sent_to_buffer = count
 
 		self.__ps.close_file()
+		print("S-a terminat thread-ul care pune pachete un buffer")
 
 	def packet_timeout(self, packet_number):
 		if packet_number in self.__recent_packets_sent:
-			print("Retrimit " + str(packet_number))
+			print(str(datetime.now().time())  + " Retrimit " + str(packet_number))
 			self.__s.sendto(self.__recent_packets_sent[packet_number], (IP, PORT))
 			threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_number]).start()
-
-
 
 	def send_files_with_SW(self):
 		self.__packages_sent_and_received = 0
 		no_of_packets = 1
-		while self.__packages_sent_and_received < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes() + 1) + 2:
-			if self.__current_packages <= self.__window_size and no_of_packets >= self.__lowest_window_package and no_of_packets < self.__lowest_window_package + self.__window_size:
+		while self.__packages_sent_and_received + 1 < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3:
+			#f.write(str(datetime.now().time())  + ": " + str(self.__lowest_window_package) + "  " + str(no_of_packets) + "  " + str(self.__lowest_window_package + self.__window_size) + "\n")
+			if no_of_packets >= self.__lowest_window_package and no_of_packets < self.__lowest_window_package + self.__window_size:
 				self.__condition.acquire()
 				if self.__buffer.qsize() == 0:
 					self.__condition.wait()
@@ -175,14 +192,18 @@ class Sender:
 					
 				no_of_packets += 1
 				self.__s.sendto(packet_to_send.get_data(), (IP, PORT))
-				print("Trimit " + str(packet_to_send.get_packet_number()))
+				print(str(datetime.now().time())  + " Trimit " + str(packet_to_send.get_packet_number()))
 				self.__condition.notify()
 				self.__condition.release()				
 
 				threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number()]).start()
 
+		while self.__valid == False:
+			print("stau ca prostu'")
+			if self.__valid == True:
+					self.__s.close()
+		print("S-a terminat thread-ul care trimite fisiere")
 
-		self.__s.close()
 
 			
 
