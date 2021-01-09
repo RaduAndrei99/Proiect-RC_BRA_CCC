@@ -47,10 +47,10 @@ def is_packet_lost(probability):
 class Receiver:
 	LOSING_PACKETS_PROBABILITY = 0 #in procente
 
-	DATA_PACKET_SIZE = 36
+	DATA_PACKET_SIZE = 68
 	ACK_PACKET_SIZE = 4
 
-	DATA_SIZE = 32
+	DATA_SIZE = 64
 	PACKET_HEADER_SIZE = 4
 
 	SW_SIZE = 10

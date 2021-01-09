@@ -16,9 +16,6 @@ PORT = 1234
 
 os.system('cls')
 
-packet_size = 36
-packet_data_size = 32
-packet_header_size = 4
 
 count = 0
 
@@ -62,8 +59,8 @@ class Sender:
 		self.__packages_sent_and_received = 0 #numarul de pachete trimise si validate la un moment dat
 		self.__lowest_window_package = 0 #pachetul cu numarul de ordine cel mai mic din fereastra curenta
 
-		self.__packet_size = 36 #lungimea pachetului 
-		self.__packet_data_size = 32 #lungimea datelor dintr-un pachet
+		self.__packet_size = 132 #lungimea pachetului 
+		self.__packet_data_size = 128 #lungimea datelor dintr-un pachet
 		self.__packet_header_size = 4 #lungimea header-ului din pachet
 
 		self.__recent_packets_sent = {} #un dictionar folosit pentru a stoca pachetele recent trimise pentru a le avea la "indemana" in cazul in care trebuie sa fie retransmise
@@ -71,7 +68,7 @@ class Sender:
 
 		self.__file_send = False #variabila ce indica daca un fisier s-a trimis sau nu
 
-		self.__QUEUE_SIZE = 1500 #lungimea buffer-ului de trimitere
+		self.__QUEUE_SIZE = 10000 #lungimea buffer-ului de trimitere
 
 		self.__buffer = Queue(maxsize = self.__QUEUE_SIZE) #buffer-ul de trimitere
 
@@ -93,6 +90,8 @@ class Sender:
 	def start_sender(self):
 		thread_1 = threading.Thread(target=self.wait_for_ACK)
 		thread_2 = threading.Thread(target=self.send_packages_to_buffer)
+		thread_3 = threading.Thread(target=self.send_files_with_SW)
+
 		thread_3 = threading.Thread(target=self.send_files_with_SW)
 	
 		thread_1.start()
@@ -154,7 +153,7 @@ class Sender:
 
 		self.__ps.open_file("music.mp3") # fisier de transmis, momentan hard-coded
 
-		first_packet = SWPacket(packet_size, packet_data_size, packet_header_size, packet_type=PacketType.INIT)
+		first_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.INIT)
 		first_packet.store_data(b'music.mp3')
 		count += 1
 		self.__buffer.put(first_packet)
@@ -196,6 +195,8 @@ class Sender:
 				if self.__buffer.qsize() == 0:
 					self.__condition.wait()
 				packet_to_send = self.__buffer.get()
+				self.__condition.notify()
+				self.__condition.release()	
 
 				self.__mutex.acquire()
 				try:
@@ -206,9 +207,7 @@ class Sender:
 				self.__current_packet_number += 1
 
 				self.__s.sendto(packet_to_send.get_data(), (IP, PORT))
-				#print(str(datetime.now().time())  + " Trimit " + str(packet_to_send.get_packet_number()))
-				self.__condition.notify()
-				self.__condition.release()				
+				#print(str(datetime.now().time())  + " Trimit " + str(packet_to_send.get_packet_number()))			
 
 				threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number()]).start()
 
@@ -219,9 +218,12 @@ class Sender:
 		print("S-a terminat thread-ul care trimite fisiere")
 
 
-			
+
 
 if __name__ == '__main__':
 	sender = Sender("127.0.0.1", 1235)
 	sender.create_socket("AF_INET", "SOCK_DGRAM")
+	start = time.time()
 	sender.start_sender()
+	end = time.time()
+	print(str(end - start))
