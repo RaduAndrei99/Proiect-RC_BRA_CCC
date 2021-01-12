@@ -51,7 +51,7 @@ class Sender:
 		self.__ps = PackingSystem() #obiectul pentru impachetarea fisierelor
 		self.__ups = UnPackingSystem(4, 0) #obiechtul pentru despachetare
 
-		self.__window_size = 1000 #lungimea ferestrei
+		self.__window_size = 100 #lungimea ferestrei
 		self.__next_lowest_package = 1 #valoarea pana la urmatorul cel mai mic pachet din fereastra
 
 		self.__current_packet_number = 0 #pachetul curent care este trimis
@@ -90,8 +90,6 @@ class Sender:
 	def start_sender(self):
 		thread_1 = threading.Thread(target=self.wait_for_ACK)
 		thread_2 = threading.Thread(target=self.send_packages_to_buffer)
-		thread_3 = threading.Thread(target=self.send_files_with_SW)
-
 		thread_3 = threading.Thread(target=self.send_files_with_SW)
 	
 		thread_1.start()

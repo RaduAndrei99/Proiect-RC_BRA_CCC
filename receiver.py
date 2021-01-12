@@ -45,22 +45,24 @@ def is_packet_lost(probability):
 	return (random.randint(0, 99) < probability)
 
 class Receiver:
-	LOSING_PACKETS_PROBABILITY = 0 #in procente
 
-	DATA_PACKET_SIZE = 68
+	DATA_PACKET_SIZE = 132
+	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
-	DATA_SIZE = 64
+	DATA_SIZE = 128
 	PACKET_HEADER_SIZE = 4
 
 	SW_SIZE = 10
 
-	def __init__(self, rcv_ip, rcv_port):
+	def __init__(self, rcv_ip, rcv_port, probability):
 
 		self.is_running = True
+		self.is_running_checker = False
 
 		self.__receiver_ip = rcv_ip
 		self.__receiver_port = rcv_port
+		self.__losing_packets_probability = probability
 
 		self.SWR = {}
 		self.last_packet_received = -1
@@ -75,25 +77,38 @@ class Receiver:
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
 		self.__s.bind((self.__receiver_ip, self.__receiver_port))
 
+	def check_connection(self):
+
+		#check_packet = SWPacket(self.CHECK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.CHECK)
+
+		#while self.is_running_checker:
+		#	data_readed, address = self.__s.recvfrom(self.CHECK_PACKET_SIZE)
+		#	
+		#	data_packet.create_packet(data_readed)
+		#	type, data_check, data_null = self.__ups.unpack(data_packet)
+		#	
+		#	if type == PacketType.CHECK:
+		#		self.__log_buffer.put("Am trimis confirmare cu datele: " + str(data_readed))
+		#		self.__s.sendto(data_readed, address)
+		return
+
 	def start_receiver(self):
-		
+
 		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
 
-		start = 0
 		while self.is_running:
-			#print("Astept urmatorul pachet:")
+
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
-			if is_packet_lost(self.LOSING_PACKETS_PROBABILITY): # Verificam daca vom pierde intentionat acest pachet
+			if is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet
 				continue
 
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
-			#print("Am primit " + str(nr_packet))
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 			self.__s.sendto(ack_packet.get_header(), address)
 
@@ -112,7 +127,7 @@ class Receiver:
 					else:
 						self.__file_writer.write_in_file(data)
 				else:
-					print("Am primit ultimul pachet")
+					ReceiverGUI.write_in_log("Am primit ultimul pachet.")
 					self.last_packet_received += 1
 					self.is_running = False
 					break
@@ -135,30 +150,26 @@ class Receiver:
 							self.__file_writer.write_in_file(data)
 					else:
 						self.last_packet_received += 1
-						print ("Am primit ultimul pachet in while-ul interior.")
+						ReceiverGUI.write_in_log("Am primit ultimul pachet in while-ul interior.")
 						self.is_running = False
 						break
 
 					self.last_packet_received += 1
-					#print ("Sunt in while-ul interior")
+					ReceiverGUI.write_in_log("Sunt in while-ul interior")
 
 			elif nr_packet > self.last_packet_received + 1:
 				self.SWR[nr_packet] = (type, data)
 
 			###################################################
 
-			#print("Dimensiunea ferestrei este: " + str(len(self.SWR)))
-			#for x in self.SWR.keys():
-				#print(x)
+			ReceiverGUI.write_in_log("Dimensiunea ferestrei este: " + str(len(self.SWR)))
+			for x in self.SWR.keys():
+				ReceiverGUI.write_in_log(str(x))
 
-
+		self.is_running_checker = False
 		self.__file_writer.close_file()
 		self.__s.close()
 		end = time.time()
-		print("Timp executie: " + str(end - start))
+		ReceiverGUI.write_in_log("Timp executie: " + str(end - start))
 
-
-if __name__ == '__main__':
-	receiver = Receiver("127.0.0.1", 1234)
-	receiver.create_socket("AF_INET", "SOCK_DGRAM")
-	receiver.start_receiver()
+from receiver_window import ReceiverGUI
