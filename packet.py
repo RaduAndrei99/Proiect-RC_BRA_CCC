@@ -16,6 +16,7 @@ class PacketType(enum.IntEnum):
 	INIT = 0
 	DATA = 1
 	ACK = 2
+	CHECK = 3
 
 class SWPacket:
 	def __init__(self, pk_size, data_size, header_size, packet_type: PacketType):

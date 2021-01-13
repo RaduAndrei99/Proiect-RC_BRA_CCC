@@ -59,8 +59,8 @@ class Sender:
 		self.__packages_sent_and_received = 0 #numarul de pachete trimise si validate la un moment dat
 		self.__lowest_window_package = 0 #pachetul cu numarul de ordine cel mai mic din fereastra curenta
 
-		self.__packet_size = 132 #lungimea pachetului 
-		self.__packet_data_size = 128 #lungimea datelor dintr-un pachet
+		self.__packet_size = 68 #lungimea pachetului 
+		self.__packet_data_size = 64 #lungimea datelor dintr-un pachet
 		self.__packet_header_size = 4 #lungimea header-ului din pachet
 
 		self.__recent_packets_sent = {} #un dictionar folosit pentru a stoca pachetele recent trimise pentru a le avea la "indemana" in cazul in care trebuie sa fie retransmise

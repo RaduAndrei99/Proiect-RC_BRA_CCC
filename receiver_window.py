@@ -2,12 +2,11 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtGui import QIntValidator
 from receiver import Receiver
+from PyQt5.QtCore import pyqtSignal
 import threading
 import sys
 
 class ReceiverGUI(object):
-
-    log_plain_text : QtWidgets.QPlainTextEdit
 
     def __init__(self):
         self.receiver = None
@@ -15,10 +14,6 @@ class ReceiverGUI(object):
         self.ip_address = "127.0.0.1"
         self.port = None
         self.probability = 0
-
-    @staticmethod
-    def write_in_log(message):
-        ReceiverGUI.log_plain_text.appendPlainText(message)
 
     def setupUi(self, ReceiverWindow):
         ReceiverWindow.setObjectName("ReceiverWindow")
@@ -29,8 +24,11 @@ class ReceiverGUI(object):
         self.centralwidget.setMinimumSize(QtCore.QSize(731, 0))
         self.centralwidget.setObjectName("centralwidget")
         self.start_stop_button = QtWidgets.QPushButton(self.centralwidget)
-        self.start_stop_button.setGeometry(QtCore.QRect(600, 120, 131, 41))
+        self.start_stop_button.setGeometry(QtCore.QRect(600, 160, 131, 41))
         self.start_stop_button.setObjectName("start_stop_button")
+        self.start_connection = QtWidgets.QPushButton(self.centralwidget)
+        self.start_connection.setGeometry(QtCore.QRect(600, 100, 131, 41))
+        self.start_connection.setObjectName("start_connection")
         self.log_scroll_area = QtWidgets.QScrollArea(self.centralwidget)
         self.log_scroll_area.setGeometry(QtCore.QRect(10, 220, 731, 331))
         self.log_scroll_area.setWidgetResizable(True)
@@ -38,10 +36,10 @@ class ReceiverGUI(object):
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
         self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 729, 329))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
-        ReceiverGUI.log_plain_text = QtWidgets.QPlainTextEdit(self.scrollAreaWidgetContents)
-        ReceiverGUI.log_plain_text.setGeometry(QtCore.QRect(0, 0, 731, 361))
-        ReceiverGUI.log_plain_text.setReadOnly(True)
-        ReceiverGUI.log_plain_text.setObjectName("log_plain_text")
+        self.log_plain_text = QtWidgets.QPlainTextEdit(self.scrollAreaWidgetContents)
+        self.log_plain_text.setGeometry(QtCore.QRect(0, 0, 731, 340))
+        self.log_plain_text.setReadOnly(True)
+        self.log_plain_text.setObjectName("log_plain_text")
         self.log_scroll_area.setWidget(self.scrollAreaWidgetContents)
         self.formLayoutWidget = QtWidgets.QWidget(self.centralwidget)
         self.formLayoutWidget.setGeometry(QtCore.QRect(10, 10, 731, 71))
@@ -153,7 +151,11 @@ class ReceiverGUI(object):
         ReceiverWindow.setWindowTitle(_translate("ReceiverWindow", "MainWindow"))
 
         self.start_stop_button.setText(_translate("ReceiverWindow", "Start receiver"))
-        self.start_stop_button.clicked.connect(self.start_receiver)
+        self.start_stop_button.clicked.connect(self.change_to_data)
+        self.start_stop_button.setEnabled(False)
+
+        self.start_connection.setText(_translate("ReceiverWindow", "Start socket"))
+        self.start_connection.clicked.connect(self.start_receiver)
 
         self.probability_label.setText(_translate("ReceiverWindow", "Probabilitatea de pierdere a pachetelor (%):"))
         self.progres_bar_label.setText(_translate("ReceiverWindow", "Progres transfer:"))
@@ -199,6 +201,18 @@ class ReceiverGUI(object):
         elif self.lan_radio_button.isChecked():
             self.ip_address = self.lan_line_edit_1.text() + '.' + self.lan_line_edit_2.text() + '.' + self.lan_line_edit_3.text() + '.' + self.lan_line_edit_4.text()
 
+    def write_in_log(self, message):
+        self.log_plain_text.appendPlainText(message)
+
+    def change_to_data(self):
+
+        self.start_connection.setEnabled(False)
+        self.receiver.get_socket().close()
+
+        if not self.thread_1.is_alive():
+            self.thread_2 = threading.Thread(target=self.receiver.start_receiver)
+            self.thread_2.start()
+
     def start_receiver(self):
 
         self.probability = int(self.probability_line_edit.text())
@@ -217,11 +231,15 @@ class ReceiverGUI(object):
             msg.exec_()
             return
 
-        ReceiverGUI.write_in_log("Start")
         self.receiver = Receiver(self.ip_address, self.port, self.probability)
+        self.receiver.signal.connect(self.write_in_log)
         self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
-        thread = threading.Thread(target=self.receiver.start_receiver)
-        thread.start()
+        
+        self.start_connection.setText("Close socket")
+        self.start_stop_button.setEnabled(True)
+
+        self.thread_1 = threading.Thread(target=self.receiver.check_connection)
+        self.thread_1.start()
 
 if __name__ == "__main__":
     
