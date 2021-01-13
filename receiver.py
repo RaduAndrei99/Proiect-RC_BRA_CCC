@@ -45,7 +45,7 @@ def is_packet_lost(probability):
 	return (random.randint(0, 99) < probability)
 
 class Receiver:
-	LOSING_PACKETS_PROBABILITY = 0 #in procente
+	LOSING_PACKETS_PROBABILITY = 10 #in procente
 
 	DATA_PACKET_SIZE = 68
 	ACK_PACKET_SIZE = 4
@@ -112,6 +112,12 @@ class Receiver:
 					else:
 						self.__file_writer.write_in_file(data)
 				else:
+					print("Primesc: " + str(data_readed))
+					response = SWPacket(4, 0, 4, packet_type=PacketType.CHECK)
+					print("Trimit " + str(response.get_data()))
+					self.__s.sendto(response.get_data(), address)
+					continue
+				
 					print("Am primit ultimul pachet")
 					self.last_packet_received += 1
 					self.is_running = False

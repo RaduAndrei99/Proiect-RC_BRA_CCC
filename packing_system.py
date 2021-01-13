@@ -44,6 +44,10 @@ class PackingSystem:
 
 		return end_packet
 
+	def reset(self):
+		self.__packet_number = 1
+
+
 
 
 
