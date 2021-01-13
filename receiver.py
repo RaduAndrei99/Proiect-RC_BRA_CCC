@@ -88,20 +88,25 @@ class Receiver(QObject):
 
 	def check_connection(self):
 
+		self.__s.setblocking(0)
 		self.signal.emit("Se asteapta mesaje...")
 		check_packet = SWPacket(self.CHECK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.CHECK)
 
 		while self.is_running == False:
-			data_readed, address = self.__s.recvfrom(self.CHECK_PACKET_SIZE)
-			self.signal.emit("Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
+			try:
+				data_readed, address = self.__s.recvfrom(self.CHECK_PACKET_SIZE)
+			except:
+				continue
 
 			data_packet.create_packet(data_readed)
 			type, data_check, data_null = self.__ups.unpack(data_packet)
 			
 			if type == PacketType.CHECK:
+				self.signal.emit("Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
 				self.__s.sendto(data_readed, address)
 
 		self.signal.emit("Nu se mai asteapta mesaje...")
+		self.__s.setblocking(1)
 		
 
 	def start_receiver(self):
@@ -183,15 +188,21 @@ class Receiver(QObject):
 			#	keys += str(x) + " "
 			#self.signal.emit(keys)
 
-		self.is_running_checker = False
 		self.__file_writer.close_file()
-		self.__s.close()
+		self.last_packet_received = -1 # Resetam receiver-ul
 		end = time.time()
 		self.signal.emit("Done!")
 		self.signal.emit("Timp de executie: " + str(end - start))
 		self.is_running = False
 
+	def set_is_running(self, bool_val):
+		self.is_running = bool_val
+
 	def get_socket(self):
 		return self.__s
+
+	def close_connection(self):
+		self.signal.emit("[" + str(datetime.now().time()) + "] " + "Socket inchis.")
+		self.__s.close()
 
 from receiver_window import ReceiverGUI

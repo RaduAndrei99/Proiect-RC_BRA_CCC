@@ -5,6 +5,7 @@ from receiver import Receiver
 from PyQt5.QtCore import pyqtSignal
 import threading
 import sys
+import time
 
 class ReceiverGUI(object):
 
@@ -26,9 +27,9 @@ class ReceiverGUI(object):
         self.start_stop_button = QtWidgets.QPushButton(self.centralwidget)
         self.start_stop_button.setGeometry(QtCore.QRect(600, 160, 131, 41))
         self.start_stop_button.setObjectName("start_stop_button")
-        self.start_connection = QtWidgets.QPushButton(self.centralwidget)
-        self.start_connection.setGeometry(QtCore.QRect(600, 100, 131, 41))
-        self.start_connection.setObjectName("start_connection")
+        self.start_stop_socket_button = QtWidgets.QPushButton(self.centralwidget)
+        self.start_stop_socket_button.setGeometry(QtCore.QRect(600, 100, 131, 41))
+        self.start_stop_socket_button.setObjectName("start_socket")
         self.log_scroll_area = QtWidgets.QScrollArea(self.centralwidget)
         self.log_scroll_area.setGeometry(QtCore.QRect(10, 220, 731, 331))
         self.log_scroll_area.setWidgetResizable(True)
@@ -154,8 +155,8 @@ class ReceiverGUI(object):
         self.start_stop_button.clicked.connect(self.change_to_data)
         self.start_stop_button.setEnabled(False)
 
-        self.start_connection.setText(_translate("ReceiverWindow", "Start socket"))
-        self.start_connection.clicked.connect(self.start_receiver)
+        self.start_stop_socket_button.setText(_translate("ReceiverWindow", "Start socket"))
+        self.start_stop_socket_button.clicked.connect(self.start_receiver)
 
         self.probability_label.setText(_translate("ReceiverWindow", "Probabilitatea de pierdere a pachetelor (%):"))
         self.progres_bar_label.setText(_translate("ReceiverWindow", "Progres transfer:"))
@@ -206,8 +207,10 @@ class ReceiverGUI(object):
 
     def change_to_data(self):
 
-        self.start_connection.setEnabled(False)
-        self.receiver.get_socket().close()
+        self.start_stop_socket_button.setEnabled(False)
+        self.receiver.set_is_running(True)
+        time.sleep(0.5)
+
 
         if not self.thread_1.is_alive():
             self.thread_2 = threading.Thread(target=self.receiver.start_receiver)
@@ -235,11 +238,14 @@ class ReceiverGUI(object):
         self.receiver.signal.connect(self.write_in_log)
         self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
         
-        self.start_connection.setText("Close socket")
+        self.start_stop_socket_button.setText("Close socket")
         self.start_stop_button.setEnabled(True)
 
         self.thread_1 = threading.Thread(target=self.receiver.check_connection)
         self.thread_1.start()
+
+        self.start_stop_socket_button.setText("Close socket")
+        self.start_stop_button.setEnabled(True)
 
 if __name__ == "__main__":
     
