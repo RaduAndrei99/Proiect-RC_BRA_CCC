@@ -51,7 +51,8 @@ def is_packet_lost(probability):
 
 class Receiver(QObject):
 
-	signal = pyqtSignal(str)
+	log_signal = pyqtSignal(str)
+	finish_signal = pyqtSignal()
 
 	DATA_PACKET_SIZE = 68
 	CHECK_PACKET_SIZE = 4
@@ -88,7 +89,7 @@ class Receiver(QObject):
 			self.__s.close()
 			self.__s.bind((self.__receiver_ip, self.__receiver_port))
 
-		self.signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
+		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
 	def start_receiver(self):
 
@@ -96,14 +97,17 @@ class Receiver(QObject):
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
+		self.last_packet_received = -1 # Resetam receiver-ul
+		self.SWR.clear()
+		self.is_running = True
 
-		self.signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta mesaje...")
+		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta mesaje...")
 		while self.is_running:
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
 			if int.from_bytes(data_readed[:1], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
-				self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
+				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
 				self.__s.sendto(data_readed, address)
 				continue
 
@@ -114,7 +118,7 @@ class Receiver(QObject):
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
-			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul cu numarul: " + str(nr_packet))
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul cu numarul: " + str(nr_packet))
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 			self.__s.sendto(ack_packet.get_header(), address)
 
@@ -133,7 +137,7 @@ class Receiver(QObject):
 					name += data.decode("ascii")
 					start = time.time()
 				else:
-					self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
+					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
 					self.last_packet_received += 1
 					self.is_running = False
 					break
@@ -161,29 +165,28 @@ class Receiver(QObject):
 						break
 
 					self.last_packet_received += 1
-					self.signal.emit("[" + str(datetime.now().time()) + "] " + "Sunt in while-ul interior")
+					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Sunt in while-ul interior")
 
 			elif nr_packet > self.last_packet_received + 1:
 				self.SWR[nr_packet] = (type, data)
 
 			###################################################
 
-			#self.signal.emit("Dimensiunea ferestrei este: " + str(len(self.SWR)))
+			#self.log_signal.emit("Dimensiunea ferestrei este: " + str(len(self.SWR)))
 			#keys = ""
 			#for x in self.SWR.keys():
 			#	keys += str(x) + " "
-			#self.signal.emit(keys)
+			#self.log_signal.emit(keys)
 
 		if self.__file_writer.is_open():
 			self.__file_writer.close_file()
 			end = time.time()
-			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
-			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))
 		else:
-			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
-		
-		self.last_packet_received = -1 # Resetam receiver-ul
-		self.is_running = True
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
+
+		self.finish_signal.emit()
 
 	def set_ip_address(self, ip_address):
 		self.__receiver_ip = ip_address
