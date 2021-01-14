@@ -18,6 +18,9 @@ class ReceiverGUI(object):
         self.port = None
         self.probability = 0
 
+        self.receiver = Receiver()
+        self.receiver.signal.connect(self.write_in_log)
+
     def setupUi(self, ReceiverWindow):
         ReceiverWindow.setObjectName("ReceiverWindow")
         ReceiverWindow.setEnabled(True)
@@ -221,12 +224,15 @@ class ReceiverGUI(object):
                 msg.exec_()
                 return
 
-            self.receiver = Receiver(self.ip_address, self.port, self.probability)
-            self.receiver.signal.connect(self.write_in_log)
+            self.receiver.set_ip_address(self.ip_address)
+            self.receiver.set_port(self.port)
+            self.receiver.set_probability(self.probability)
+
             self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
 
             self.thread = threading.Thread(target=self.receiver.start_receiver)
             self.thread.start()
+            self.start_stop_button.setText("Stop Receiver")
         else:
             self.receiver.set_is_running(False)
             
@@ -234,7 +240,8 @@ class ReceiverGUI(object):
             data_packet.make_end_packet()
             data_packet.set_packet_number(0xFFFFFF)
             
-            self.receiver.get_socket().sendto(data_packet.get_data(), (self.ip_address, self.port))
+            self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
+            self.start_stop_button.setText("Stop Receiver")
 
 
 if __name__ == "__main__":

@@ -62,14 +62,14 @@ class Receiver(QObject):
 
 	SW_SIZE = 10
 
-	def __init__(self, rcv_ip, rcv_port, probability):
+	def __init__(self):
 		super(Receiver, self).__init__()
 
 		self.is_running = True
 
-		self.__receiver_ip = rcv_ip
-		self.__receiver_port = rcv_port
-		self.__losing_packets_probability = probability
+		self.__receiver_ip = 0
+		self.__receiver_port = 0
+		self.__losing_packets_probability = 0
 
 		self.SWR = {}
 		self.last_packet_received = -1
@@ -184,6 +184,21 @@ class Receiver(QObject):
 		
 		self.last_packet_received = -1 # Resetam receiver-ul
 		self.is_running = True
+
+	def set_ip_address(self, ip_address):
+		self.__receiver_ip = ip_address
+
+	def set_port(self, port):
+		self.__receiver_port = port
+
+	def set_probability(self, probability):
+		self.__losing_packets_probability = probability
+
+	def get_ip_address(self):
+		return self.__receiver_ip
+
+	def get_port(self):
+		return self.__receiver_port
 
 	def set_is_running(self, bool_val):
 		self.is_running = bool_val
