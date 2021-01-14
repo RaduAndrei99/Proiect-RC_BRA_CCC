@@ -53,11 +53,7 @@ class Sender(QObject):
 		self.__ps = PackingSystem() #obiectul pentru impachetarea fisierelor
 		self.__ups = UnPackingSystem(4, 0) #obiechtul pentru despachetare
 
-<<<<<<< HEAD
-		self.__window_size = 100 #lungimea ferestrei
-=======
 		self.__window_size = 10 #lungimea ferestrei
->>>>>>> 8b7976da3b959d317c846dbb693ab0678dc36bc8
 		self.__next_lowest_package = 1 #valoarea pana la urmatorul cel mai mic pachet din fereastra
 
 		self.__current_packet_number = 0 #pachetul curent care este trimis
@@ -100,11 +96,7 @@ class Sender(QObject):
 		thread_1 = threading.Thread(target=self.wait_for_ACK)
 		thread_2 = threading.Thread(target=self.send_packages_to_buffer)
 		thread_3 = threading.Thread(target=self.send_files_with_SW)
-<<<<<<< HEAD
-	
-=======
 
->>>>>>> 8b7976da3b959d317c846dbb693ab0678dc36bc8
 		thread_1.start()
 		thread_2.start()
 		thread_3.start()
@@ -287,19 +279,4 @@ class Sender(QObject):
 		except ConnectionResetError:
 			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + "Eroare! Conexiunea este invalida!")
 
-
-
-
-
-
-<<<<<<< HEAD
-if __name__ == '__main__':
-	sender = Sender("127.0.0.1", 1235)
-	sender.create_socket("AF_INET", "SOCK_DGRAM")
-	start = time.time()
-	sender.start_sender()
-	end = time.time()
-	print(str(end - start))
-=======
 from sender_window import Ui_MainWindow
->>>>>>> 8b7976da3b959d317c846dbb693ab0678dc36bc8
