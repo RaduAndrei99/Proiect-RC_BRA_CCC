@@ -1,6 +1,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtGui import QIntValidator
+from packet import SWPacket
+from packet import PacketType
 from receiver import Receiver
 from PyQt5.QtCore import pyqtSignal
 import threading
@@ -25,11 +27,9 @@ class ReceiverGUI(object):
         self.centralwidget.setMinimumSize(QtCore.QSize(731, 0))
         self.centralwidget.setObjectName("centralwidget")
         self.start_stop_button = QtWidgets.QPushButton(self.centralwidget)
-        self.start_stop_button.setGeometry(QtCore.QRect(600, 160, 131, 41))
+        self.start_stop_button.setGeometry(QtCore.QRect(600, 130, 131, 41))
         self.start_stop_button.setObjectName("start_stop_button")
-        self.start_stop_socket_button = QtWidgets.QPushButton(self.centralwidget)
-        self.start_stop_socket_button.setGeometry(QtCore.QRect(600, 100, 131, 41))
-        self.start_stop_socket_button.setObjectName("start_socket")
+        self.start_stop_button.setCheckable(True)
         self.log_scroll_area = QtWidgets.QScrollArea(self.centralwidget)
         self.log_scroll_area.setGeometry(QtCore.QRect(10, 220, 731, 331))
         self.log_scroll_area.setWidgetResizable(True)
@@ -152,11 +152,7 @@ class ReceiverGUI(object):
         ReceiverWindow.setWindowTitle(_translate("ReceiverWindow", "MainWindow"))
 
         self.start_stop_button.setText(_translate("ReceiverWindow", "Start receiver"))
-        self.start_stop_button.clicked.connect(self.change_to_data)
-        self.start_stop_button.setEnabled(False)
-
-        self.start_stop_socket_button.setText(_translate("ReceiverWindow", "Start socket"))
-        self.start_stop_socket_button.clicked.connect(self.start_receiver)
+        self.start_stop_button.clicked.connect(self.start_receiver)
 
         self.probability_label.setText(_translate("ReceiverWindow", "Probabilitatea de pierdere a pachetelor (%):"))
         self.progres_bar_label.setText(_translate("ReceiverWindow", "Progres transfer:"))
@@ -205,47 +201,41 @@ class ReceiverGUI(object):
     def write_in_log(self, message):
         self.log_plain_text.appendPlainText(message)
 
-    def change_to_data(self):
-
-        self.start_stop_socket_button.setEnabled(False)
-        self.receiver.set_is_running(True)
-        time.sleep(0.5)
-
-
-        if not self.thread_1.is_alive():
-            self.thread_2 = threading.Thread(target=self.receiver.start_receiver)
-            self.thread_2.start()
-
     def start_receiver(self):
 
-        self.probability = int(self.probability_line_edit.text())
+        if self.start_stop_button.isChecked() == True:
 
-        try:
-            self.port = int(self.port_line_edit.text())
-            if self.port < 1234:
-                raise ValueError("Portul trebuie sa fie cuprins intre 1234 si 65535.")
+            self.probability = int(self.probability_line_edit.text())
 
-        except ValueError as e:
-            msg = QMessageBox()
-            msg.setStyleSheet("QLabel{min-width: 250px;}");
-            msg.setWindowTitle("Eroare!")
-            msg.setInformativeText(str(e))
-            msg.setStandardButtons(QMessageBox.Ok)
-            msg.exec_()
-            return
+            try:
+                self.port = int(self.port_line_edit.text())
+                if self.port < 1234:
+                    raise ValueError("Portul trebuie sa fie cuprins intre 1234 si 65535.")
 
-        self.receiver = Receiver(self.ip_address, self.port, self.probability)
-        self.receiver.signal.connect(self.write_in_log)
-        self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
-        
-        self.start_stop_socket_button.setText("Close socket")
-        self.start_stop_button.setEnabled(True)
+            except ValueError as e:
+                msg = QMessageBox()
+                msg.setStyleSheet("QLabel{min-width: 250px;}");
+                msg.setWindowTitle("Eroare!")
+                msg.setInformativeText(str(e))
+                msg.setStandardButtons(QMessageBox.Ok)
+                msg.exec_()
+                return
 
-        self.thread_1 = threading.Thread(target=self.receiver.check_connection)
-        self.thread_1.start()
+            self.receiver = Receiver(self.ip_address, self.port, self.probability)
+            self.receiver.signal.connect(self.write_in_log)
+            self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
 
-        self.start_stop_socket_button.setText("Close socket")
-        self.start_stop_button.setEnabled(True)
+            self.thread = threading.Thread(target=self.receiver.start_receiver)
+            self.thread.start()
+        else:
+            self.receiver.set_is_running(False)
+            
+            data_packet = SWPacket(self.receiver.DATA_PACKET_SIZE, self.receiver.DATA_SIZE, self.receiver.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+            data_packet.make_end_packet()
+            data_packet.set_packet_number(0xFFFFFF)
+            
+            self.receiver.get_socket().sendto(data_packet.get_data(), (self.ip_address, self.port))
+
 
 if __name__ == "__main__":
     

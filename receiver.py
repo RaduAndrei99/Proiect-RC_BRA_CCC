@@ -10,6 +10,7 @@ from unpacking_system import UnPackingSystem
 from packet import SWPacket, PacketType
 from queue import Queue
 from datetime import datetime
+from multiprocessing import Process
 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
@@ -55,7 +56,6 @@ class Receiver(QObject):
 	DATA_PACKET_SIZE = 68
 	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
-	LOG_BUFFER_SIZE = 10000
 
 	DATA_SIZE = 64
 	PACKET_HEADER_SIZE = 4
@@ -65,7 +65,7 @@ class Receiver(QObject):
 	def __init__(self, rcv_ip, rcv_port, probability):
 		super(Receiver, self).__init__()
 
-		self.is_running = False
+		self.is_running = True
 
 		self.__receiver_ip = rcv_ip
 		self.__receiver_port = rcv_port
@@ -76,51 +76,37 @@ class Receiver(QObject):
 
 		self.__file_writer = FileWriter("")
 		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE, self.DATA_SIZE)
-		self.__log_buffer = Queue(maxsize=self.LOG_BUFFER_SIZE)
 
 	def create_socket(self, af_type, sock_type):
 
 		check_socket(af_type, sock_type)
-
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
-		self.__s.bind((self.__receiver_ip, self.__receiver_port))
-		self.signal.emit("S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
-	def check_connection(self):
+		try:
+			self.__s.bind((self.__receiver_ip, self.__receiver_port))
+		except:
+			self.__s.close()
+			self.__s.bind((self.__receiver_ip, self.__receiver_port))
 
-		self.__s.setblocking(0)
-		self.signal.emit("Se asteapta mesaje...")
-		check_packet = SWPacket(self.CHECK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.CHECK)
-
-		while self.is_running == False:
-			try:
-				data_readed, address = self.__s.recvfrom(self.CHECK_PACKET_SIZE)
-			except:
-				continue
-
-			data_packet.create_packet(data_readed)
-			type, data_check, data_null = self.__ups.unpack(data_packet)
-			
-			if type == PacketType.CHECK:
-				self.signal.emit("Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
-				self.__s.sendto(data_readed, address)
-
-		self.signal.emit("Nu se mai asteapta mesaje...")
-		self.__s.setblocking(1)
-		
+		self.signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
 	def start_receiver(self):
-
-		self.signal.emit("A inceput thread-ul de gestionare a pachetelor.")
 
 		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
 
+		self.signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta mesaje...")
 		while self.is_running:
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
+
+			if int.from_bytes(data_readed[:1], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
+				self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
+				self.__s.sendto(data_readed, address)
+				continue
+
 
 			if is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet
 				continue
@@ -136,16 +122,16 @@ class Receiver(QObject):
 
 			if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
 				
-				if type == PacketType.INIT:
-					name += data.decode("ascii")
-					start = time.time()
-				elif type == PacketType.DATA:
+				if type == PacketType.DATA:
 					if self.__file_writer.is_open() == False:
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
 						self.__file_writer.write_in_file(data)
 					else:
 						self.__file_writer.write_in_file(data)
+				elif type == PacketType.INIT:
+					name += data.decode("ascii")
+					start = time.time()
 				else:
 					self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
 					self.last_packet_received += 1
@@ -159,15 +145,15 @@ class Receiver(QObject):
 					(type, data) = self.SWR[self.last_packet_received + 1]
 					self.SWR.pop(self.last_packet_received + 1)
 
-					if type == PacketType.INIT:
-						name += data
-					elif type == PacketType.DATA:
+					if type == PacketType.DATA:
 						if self.__file_writer.is_open() == False:
 							self.__file_writer.set_file_name(name)
 							self.__file_writer.open_file()
 							self.__file_writer.write_in_file(data)
 						else:
 							self.__file_writer.write_in_file(data)
+					elif type == PacketType.INIT:
+						name += data
 					else:
 						self.last_packet_received += 1
 						self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet in while-ul interior.")
@@ -188,12 +174,16 @@ class Receiver(QObject):
 			#	keys += str(x) + " "
 			#self.signal.emit(keys)
 
-		self.__file_writer.close_file()
+		if self.__file_writer.is_open():
+			self.__file_writer.close_file()
+			end = time.time()
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))
+		else:
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
+		
 		self.last_packet_received = -1 # Resetam receiver-ul
-		end = time.time()
-		self.signal.emit("Done!")
-		self.signal.emit("Timp de executie: " + str(end - start))
-		self.is_running = False
+		self.is_running = True
 
 	def set_is_running(self, bool_val):
 		self.is_running = bool_val
