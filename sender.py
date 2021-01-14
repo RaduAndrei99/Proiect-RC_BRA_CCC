@@ -40,6 +40,9 @@ class Sender(QObject):
 	DEFAULT_IP = "127.0.0.1"
 	DEFAULT_PORT = 1235
 
+	DEFAULT_RECEIVER_IP = "127.0.0.1"
+	DEFAULT_RECEIVER_PORT = 1234
+
 	log_message_signal = pyqtSignal(str)
 	file_sent_signal = pyqtSignal(bool)
 
@@ -83,6 +86,8 @@ class Sender(QObject):
 		self.__sender_run_flag = True
 
 		self.__path = "music.mp3"
+
+		self.__MAX_FILE_NAME_SIZE = 64
 
 	def create_socket(self, af_type, sock_type):
 		check_socket(af_type, sock_type)
@@ -170,9 +175,24 @@ class Sender(QObject):
 		self.__ps.open_file(self.__path) 
 
 		first_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.INIT)
+
 		file_name = self.__path.split("/")[-1]
+
+		if len(file_name) > self.__MAX_FILE_NAME_SIZE:
+			file_name = file_name[0:64-len(file_name.split(".")[-1])] + file_name.split(".")[-1]
+
 		first_packet.store_data(bytes(file_name, 'utf-8'))
+
+		packets_to_send = 0
+		if self.__ps.get_file_size() % self.__ps.get_data_size_in_bytes() != 0:
+			packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3
+		else:
+			packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
+
+		first_packet.set_packet_number(packets_to_send)
+
 		count += 1
+
 		self.__buffer.put(first_packet)
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
 			if self.__sender_run_flag == True:
@@ -204,45 +224,58 @@ class Sender(QObject):
 		if packet_number in self.__recent_packets_sent:
 			try:
 				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"    + " Retrimit pachetul " + str(packet_number))		
-				self.__s.sendto(self.__recent_packets_sent[packet_number], (self.DEFAULT_IP, 1234))
+				self.__s.sendto(self.__recent_packets_sent[packet_number], (self.DEFAULT_RECEIVER_IP, 1234))
 				threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_number]).start()
 			except KeyError:
 				return
 				
 	def send_files_with_SW(self):
-		self.__packages_sent_and_received = 0
-		self.__current_packet_number = 0
-		self.__lowest_window_package = 0
+		try:
+			self.__packages_sent_and_received = 0
+			self.__current_packet_number = 0
+			self.__lowest_window_package = 0
 
-		while self.__current_packet_number < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3:
-			if self.__sender_run_flag == True:
-				if self.__current_packet_number >= self.__lowest_window_package and self.__current_packet_number < self.__lowest_window_package + self.__window_size:
-					self.__condition.acquire()
-					if self.__buffer.qsize() == 0:
-						self.__condition.wait()
-					packet_to_send = self.__buffer.get()
-					self.__condition.notify()
-					self.__condition.release()	
+			while self.__current_packet_number < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3:
+				if self.__sender_run_flag == True:
+					if self.__current_packet_number >= self.__lowest_window_package and self.__current_packet_number < self.__lowest_window_package + self.__window_size:
+						self.__condition.acquire()
+						if self.__buffer.qsize() == 0:
+							self.__condition.wait()
+						packet_to_send = self.__buffer.get()
+						self.__condition.notify()
+						self.__condition.release()	
 
-					self.__mutex.acquire()
-					try:
-						self.__recent_packets_sent[packet_to_send.get_packet_number()] = packet_to_send.get_data()
-					finally:
-						self.__mutex.release()
-						
-					self.__current_packet_number += 1
+						self.__mutex.acquire()
+						try:
+							self.__recent_packets_sent[packet_to_send.get_packet_number()] = packet_to_send.get_data()
+						finally:
+							self.__mutex.release()
+							
+						self.__current_packet_number += 1
 
-					self.__s.sendto(packet_to_send.get_data(), (self.DEFAULT_IP, 1234))
-					self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Trimit pachetul " + str(packet_to_send.get_packet_number()))		
-					threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number()]).start()
-			else:
-				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " S-a terminat thread-ul care trimite fisiere mai devreme din cauza unei erori.")
-				return
+						self.__s.sendto(packet_to_send.get_data(), (self.DEFAULT_RECEIVER_IP, 1234))
+						self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Trimit pachetul " + str(packet_to_send.get_packet_number()))		
+						threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number()]).start()
+				else:
+					self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " S-a terminat thread-ul care trimite fisiere mai devreme din cauza unei erori.")
+					return
 
-		while self.__valid == False:
-			if self.__valid == True:
-					self.__s.close()
-		self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " S-a terminat thread-ul care trimite fisiere.")
+			while self.__valid == False:
+				if self.__valid == True:
+						self.__s.close()
+			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " S-a terminat thread-ul care trimite fisiere.")
+			
+		except Exception as e:
+			self.__sender_run_flag = False
+			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Conexiunea s-a inchis dintr-o cauza necunoscuta.")
+			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " " + str(e))
+			self.__recent_packets_sent.clear()
+			self.__recent_ACK_received.clear()
+			with self.__buffer.mutex:
+				self.__buffer.queue.clear()
+			self.__s.close()
+
+			return
 
 	
 	def set_ip(self, ip):
@@ -269,7 +302,7 @@ class Sender(QObject):
 
 			test_packet = SWPacket(4, 0, 4, packet_type=PacketType.CHECK)
 
-			self.__s.sendto(test_packet.get_data(), (self.DEFAULT_IP, 1234))
+			self.__s.sendto(test_packet.get_data(), (self.DEFAULT_RECEIVER_IP, 1234))
 			data_readed, address = self.__s.recvfrom(4)
 			print(str(data_readed))
 			if data_readed != None and data_readed[0] == b'3':
@@ -278,5 +311,10 @@ class Sender(QObject):
 				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + "Conexiunea este invalida!")
 		except ConnectionResetError:
 			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + "Eroare! Conexiunea este invalida!")
+		except Exception as e:
+			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " " + str(e))
+	
+	def get_sender_ip(self):
+		return self.__sender_ip
 
 from sender_window import Ui_MainWindow

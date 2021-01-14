@@ -14,7 +14,7 @@ from PyQt5.QtGui import QIntValidator
 import threading
 from datetime import datetime 
 from queue import Queue
-import logging
+import socket
 
 class Ui_MainWindow(QWidget):
 
@@ -227,6 +227,22 @@ class Ui_MainWindow(QWidget):
         self.start_sender_button.setText(_translate("MainWindow", "Start Sender"))
         self.test_connection_button.setText(_translate("MainWindow", "Testeaza conexiunea"))
 
+        self.set_ip_in_text_field(self.__sender.get_sender_ip())
+
+    def set_ip_in_text_field(self, given_ip: str):
+        self.ip_text_field_1.setText(given_ip.split(".")[0])
+        self.ip_text_field_2.setText(given_ip.split(".")[1])
+        self.ip_text_field_3.setText(given_ip.split(".")[2])
+        self.ip_text_field_4.setText(given_ip.split(".")[3])
+
+    def get_ip_from_text_field(self):
+        ip1 = self.ip_text_field_1.text()
+        ip2 = self.ip_text_field_2.text()
+        ip3 = self.ip_text_field_3.text()
+        ip4 = self.ip_text_field_4.text()
+
+        return ip1 + "." + ip2 + "." + ip3 + "." + ip4
+
     def on_slider(self, value):
         self.window_size_value_label.setText(str(value))
         self.__sender.set_window_size(value)
@@ -283,11 +299,19 @@ class Ui_MainWindow(QWidget):
                 
             thread_sender = threading.Thread(target=self.__sender.start_sender)
             thread_sender.start()
+
             self.window_slider.setEnabled(False)
             self.set_IP_button.setEnabled(False)
             self.set_port_button.setEnabled(False)
             self.set_timeout_button.setEnabled(False)
             self.start_sender_button.setEnabled(False)
+
+            if self.get_ip_from_text_field != "127.0.0.1":
+                host_name = socket.gethostname() 
+                host_ip = socket.gethostbyname(host_name) 
+                self.__sender.set_ip(host_ip)
+            else:
+                print("e ok")
 
         except Exception as e:
             QMessageBox.about(self, "Eroare!", "Eroare la pornirea sender-ului!" )  

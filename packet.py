@@ -1,11 +1,11 @@
 """
 	Clasa folosita pentru a defini un pachet. 
-	Format: 36 de octeti
+	Format: 68 de octeti
 		- primul octet: 0x1 - pachet de initializare
 						0x0 - pachet ce contine date
 
 		- urmatorii trei octeti: indexul pachetului (pot fi maxim 16.777.216 de pachete pentru un fisier)
-		- ultimii 32 de octeti: 
+		- ultimii 64 de octeti: 
 								daca pachetul este de tip initializare, va contine numele fisierului
 								daca pachetul este de tip data, va contine date efective 
 """
@@ -53,7 +53,7 @@ class SWPacket:
 		self.__byte_array[4:self.__package_size] = data_array_in_bytes
 
 	def set_packet_number(self, pk_number):
-		if(pk_number < pow(2, 24)):
+		if(pk_number < pow(2, 24) - 1):
 			self.__byte_array[1:4] = pk_number.to_bytes(3, byteorder="big")
 
 	def create_packet(self, bytes_array):
