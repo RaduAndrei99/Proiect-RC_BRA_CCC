@@ -241,7 +241,7 @@ class ReceiverGUI(object):
             data_packet.set_packet_number(0xFFFFFF)
             
             self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
-            self.start_stop_button.setText("Stop Receiver")
+            self.start_stop_button.setText("Start Receiver")
 
 
 if __name__ == "__main__":
