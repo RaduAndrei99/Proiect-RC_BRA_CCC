@@ -21,6 +21,11 @@ class ReceiverGUI(object):
         self.receiver = Receiver()
         self.receiver.log_signal.connect(self.write_in_log)
         self.receiver.finish_signal.connect(self.receiver_finished)
+        self.receiver.loading_bar_signal.connect(self.update_loading_bar)
+        self.receiver.set_total_nr_of_packets_signal.connect(self.set_total_nr_of_packets)
+
+        self.total_nr_of_packets = -1
+        self.one_percent_value = -1
 
     def setupUi(self, ReceiverWindow):
         ReceiverWindow.setObjectName("ReceiverWindow")
@@ -58,10 +63,10 @@ class ReceiverGUI(object):
         self.probability_line_edit = QtWidgets.QLineEdit(self.formLayoutWidget)
         self.probability_line_edit.setObjectName("probability_line_edit")
         self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.probability_line_edit)
-        self.progressBar = QtWidgets.QProgressBar(self.formLayoutWidget)
-        self.progressBar.setProperty("value", 0)
-        self.progressBar.setObjectName("progressBar")
-        self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.progressBar)
+        self.progress_bar = QtWidgets.QProgressBar(self.formLayoutWidget)
+        self.progress_bar.setProperty("value", 0)
+        self.progress_bar.setObjectName("progress_bar")
+        self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.progress_bar)
         self.progres_bar_label = QtWidgets.QLabel(self.formLayoutWidget)
         self.progres_bar_label.setObjectName("progres_bar_label")
         self.formLayout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.progres_bar_label)
@@ -192,6 +197,16 @@ class ReceiverGUI(object):
         self.port_label.setText(_translate("ReceiverWindow", "Port:"))
         self.port_line_edit.setText(_translate("ReceiverWindow", "1234"))
         self.port_line_edit.setValidator(QIntValidator(1234, 65535))
+
+    def set_total_nr_of_packets(self, total_nr_of_packets):
+        self.total_nr_of_packets = total_nr_of_packets
+        self.one_percent_value = float(total_nr_of_packets / 100)
+        print("Nr total de pachete este: " + str(self.total_nr_of_packets))
+        print("1%: " + str(self.one_percent_value))
+
+    def update_loading_bar(self, packet_nr):
+        print(int(packet_nr / self.one_percent_value))
+        self.progress_bar.Value = int(packet_nr / self.one_percent_value)
 
     def acquie_data(self):
         if self.loopback_radio_button.isChecked():

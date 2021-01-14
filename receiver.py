@@ -53,6 +53,8 @@ class Receiver(QObject):
 
 	log_signal = pyqtSignal(str)
 	finish_signal = pyqtSignal()
+	set_total_nr_of_packets_signal = pyqtSignal(int)
+	loading_bar_signal = pyqtSignal(int)
 
 	DATA_PACKET_SIZE = 68
 	CHECK_PACKET_SIZE = 4
@@ -61,19 +63,19 @@ class Receiver(QObject):
 	DATA_SIZE = 64
 	PACKET_HEADER_SIZE = 4
 
-	SW_SIZE = 10
+	FIRST_PACKET = 0
 
 	def __init__(self):
 		super(Receiver, self).__init__()
-
-		self.is_running = True
 
 		self.__receiver_ip = 0
 		self.__receiver_port = 0
 		self.__losing_packets_probability = 0
 
-		self.SWR = {}
-		self.last_packet_received = -1
+		self.__is_running = True
+		self.__SWR = {}
+		self.__last_packet_received = -1
+		self.__total_nr_of_packets_to_receive = 0
 
 		self.__file_writer = FileWriter("")
 		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE, self.DATA_SIZE)
@@ -97,12 +99,14 @@ class Receiver(QObject):
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
-		self.last_packet_received = -1 # Resetam receiver-ul
-		self.SWR.clear()
-		self.is_running = True
+
+		self.__is_running = True
+		self.__SWR.clear()
+		self.__last_packet_received = -1
+		self.__total_nr_of_packets_to_receive = 0
 
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta mesaje...")
-		while self.is_running:
+		while self.__is_running:
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
@@ -124,7 +128,7 @@ class Receiver(QObject):
 
 			################################################
 
-			if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
+			if nr_packet == self.__last_packet_received + 1: # Mecanism sliding window
 				
 				if type == PacketType.DATA:
 					if self.__file_writer.is_open() == False:
@@ -134,20 +138,28 @@ class Receiver(QObject):
 					else:
 						self.__file_writer.write_in_file(data)
 				elif type == PacketType.INIT:
-					name += data.decode("ascii")
-					start = time.time()
+					if nr_packet == self.FIRST_PACKET:
+						self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_HEADER_SIZE - 1, data)
+						print("Numarul total de pachete este: " + str(self.__total_nr_of_packets_to_receive))
+						self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
+						name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_HEADER_SIZE - 1, data).decode("ascii")
+						start = time.time()
+					else:
+						name += data.decode("ascii")
+
+					continue
 				else:
 					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
-					self.last_packet_received += 1
-					self.is_running = False
+					self.__last_packet_received += 1
+					self.__is_running = False
 					break
 		
-				self.last_packet_received += 1
+				self.__last_packet_received += 1
 
-				while self.last_packet_received + 1 in self.SWR.keys():
+				while self.__last_packet_received + 1 in self.__SWR.keys():
 
-					(type, data) = self.SWR[self.last_packet_received + 1]
-					self.SWR.pop(self.last_packet_received + 1)
+					(type, data) = self.__SWR[self.__last_packet_received + 1]
+					self.__SWR.pop(self.__last_packet_received + 1)
 
 					if type == PacketType.DATA:
 						if self.__file_writer.is_open() == False:
@@ -157,26 +169,28 @@ class Receiver(QObject):
 						else:
 							self.__file_writer.write_in_file(data)
 					elif type == PacketType.INIT:
-						name += data
+						if nr_packet == FIRST_PACKET:
+							self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_HEADER_SIZE - 1, data)
+							self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
+							name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_HEADER_SIZE - 1, data).decode("ascii")
+							start = time.time()
+						else:
+							name += data.decode("ascii")
 					else:
-						self.last_packet_received += 1
+						self.__last_packet_received += 1
 						self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet in while-ul interior.")
-						self.is_running = False
+						self.__is_running = False
 						break
 
-					self.last_packet_received += 1
+					self.__last_packet_received += 1
 					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Sunt in while-ul interior")
 
-			elif nr_packet > self.last_packet_received + 1:
-				self.SWR[nr_packet] = (type, data)
+			elif nr_packet > self.__last_packet_received + 1:
+				self.__SWR[nr_packet] = (type, data)
+
+			self.loading_bar_signal.emit(nr_packet) # Update loading bar
 
 			###################################################
-
-			#self.log_signal.emit("Dimensiunea ferestrei este: " + str(len(self.SWR)))
-			#keys = ""
-			#for x in self.SWR.keys():
-			#	keys += str(x) + " "
-			#self.log_signal.emit(keys)
 
 		if self.__file_writer.is_open():
 			self.__file_writer.close_file()
@@ -187,6 +201,7 @@ class Receiver(QObject):
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
 
 		self.finish_signal.emit()
+		self.close_connection()
 
 	def set_ip_address(self, ip_address):
 		self.__receiver_ip = ip_address
@@ -204,13 +219,13 @@ class Receiver(QObject):
 		return self.__receiver_port
 
 	def set_is_running(self, bool_val):
-		self.is_running = bool_val
+		self.__is_running = bool_val
 
 	def get_socket(self):
 		return self.__s
 
 	def close_connection(self):
-		self.signal.emit("[" + str(datetime.now().time()) + "] " + "Socket inchis.")
+		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Socket inchis.")
 		self.__s.close()
 
 from receiver_window import ReceiverGUI
