@@ -7,6 +7,11 @@ import random
 from file_writer import FileWriter
 from unpacking_system import UnPackingSystem
 from packet import SWPacket, PacketType
+from queue import Queue
+from datetime import datetime
+from multiprocessing import Process
+
+from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
 af_type_dic = {
         	"AF_INET": socket.AF_INET,
@@ -43,10 +48,12 @@ def is_packet_lost(probability):
 	
 	return (random.randint(0, 99) < probability)
 
-class Receiver:
-	LOSING_PACKETS_PROBABILITY = 10 #in procente
+class Receiver(QObject):
+
+	signal = pyqtSignal(str)
 
 	DATA_PACKET_SIZE = 68
+	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
 	DATA_SIZE = 64
@@ -54,12 +61,14 @@ class Receiver:
 
 	SW_SIZE = 10
 
-	def __init__(self, rcv_ip, rcv_port):
+	def __init__(self):
+		super(Receiver, self).__init__()
 
 		self.is_running = True
 
-		self.__receiver_ip = rcv_ip
-		self.__receiver_port = rcv_port
+		self.__receiver_ip = 0
+		self.__receiver_port = 0
+		self.__losing_packets_probability = 0
 
 		self.SWR = {}
 		self.last_packet_received = -1
@@ -70,29 +79,41 @@ class Receiver:
 	def create_socket(self, af_type, sock_type):
 
 		check_socket(af_type, sock_type)
-
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
-		self.__s.bind((self.__receiver_ip, self.__receiver_port))
+
+		try:
+			self.__s.bind((self.__receiver_ip, self.__receiver_port))
+		except:
+			self.__s.close()
+			self.__s.bind((self.__receiver_ip, self.__receiver_port))
+
+		self.signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
 	def start_receiver(self):
-		
+
 		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
 
-		start = 0
+		self.signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta mesaje...")
 		while self.is_running:
-			#print("Astept urmatorul pachet:")
+
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
-			if is_packet_lost(self.LOSING_PACKETS_PROBABILITY): # Verificam daca vom pierde intentionat acest pachet
+			if int.from_bytes(data_readed[:1], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
+				self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
+				self.__s.sendto(data_readed, address)
+				continue
+
+
+			if is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet
 				continue
 
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
-			#print("Am primit " + str(nr_packet))
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul cu numarul: " + str(nr_packet))
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 			self.__s.sendto(ack_packet.get_header(), address)
 
@@ -100,23 +121,22 @@ class Receiver:
 
 			if nr_packet == self.last_packet_received + 1: # Mecanism sliding window
 				
-				if type == PacketType.INIT:
-					name += data.decode("ascii")
-					start = time.time()
-				elif type == PacketType.DATA:
+				if type == PacketType.DATA:
 					if self.__file_writer.is_open() == False:
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
 						self.__file_writer.write_in_file(data)
 					else:
 						self.__file_writer.write_in_file(data)
+				elif type == PacketType.INIT:
+					name += data.decode("ascii")
+					start = time.time()
 				else:
-				
-					print("Am primit ultimul pachet")
+					self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
 					self.last_packet_received += 1
 					self.is_running = False
 					break
-	
+		
 				self.last_packet_received += 1
 
 				while self.last_packet_received + 1 in self.SWR.keys():
@@ -124,41 +144,69 @@ class Receiver:
 					(type, data) = self.SWR[self.last_packet_received + 1]
 					self.SWR.pop(self.last_packet_received + 1)
 
-					if type == PacketType.INIT:
-						name += data
-					elif type == PacketType.DATA:
+					if type == PacketType.DATA:
 						if self.__file_writer.is_open() == False:
 							self.__file_writer.set_file_name(name)
 							self.__file_writer.open_file()
 							self.__file_writer.write_in_file(data)
 						else:
 							self.__file_writer.write_in_file(data)
+					elif type == PacketType.INIT:
+						name += data
 					else:
 						self.last_packet_received += 1
-						print ("Am primit ultimul pachet in while-ul interior.")
+						self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet in while-ul interior.")
 						self.is_running = False
 						break
 
 					self.last_packet_received += 1
-					#print ("Sunt in while-ul interior")
+					self.signal.emit("[" + str(datetime.now().time()) + "] " + "Sunt in while-ul interior")
 
 			elif nr_packet > self.last_packet_received + 1:
 				self.SWR[nr_packet] = (type, data)
 
 			###################################################
 
-			#print("Dimensiunea ferestrei este: " + str(len(self.SWR)))
+			#self.signal.emit("Dimensiunea ferestrei este: " + str(len(self.SWR)))
+			#keys = ""
 			#for x in self.SWR.keys():
-				#print(x)
+			#	keys += str(x) + " "
+			#self.signal.emit(keys)
 
+		if self.__file_writer.is_open():
+			self.__file_writer.close_file()
+			end = time.time()
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))
+		else:
+			self.signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
+		
+		self.last_packet_received = -1 # Resetam receiver-ul
+		self.is_running = True
 
-		self.__file_writer.close_file()
+	def set_ip_address(self, ip_address):
+		self.__receiver_ip = ip_address
+
+	def set_port(self, port):
+		self.__receiver_port = port
+
+	def set_probability(self, probability):
+		self.__losing_packets_probability = probability
+
+	def get_ip_address(self):
+		return self.__receiver_ip
+
+	def get_port(self):
+		return self.__receiver_port
+
+	def set_is_running(self, bool_val):
+		self.is_running = bool_val
+
+	def get_socket(self):
+		return self.__s
+
+	def close_connection(self):
+		self.signal.emit("[" + str(datetime.now().time()) + "] " + "Socket inchis.")
 		self.__s.close()
-		end = time.time()
-		print("Timp executie: " + str(end - start))
 
-
-if __name__ == '__main__':
-	receiver = Receiver("127.0.0.1", 1234)
-	receiver.create_socket("AF_INET", "SOCK_DGRAM")
-	receiver.start_receiver()
+from receiver_window import ReceiverGUI

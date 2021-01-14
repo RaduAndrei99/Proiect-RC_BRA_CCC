@@ -279,9 +279,4 @@ class Sender(QObject):
 		except ConnectionResetError:
 			self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + "Eroare! Conexiunea este invalida!")
 
-
-
-
-
-
 from sender_window import Ui_MainWindow
