@@ -1,7 +1,6 @@
 import os
 import socket
 import sys
-import threading
 import time
 import random
 
@@ -112,11 +111,6 @@ class Receiver:
 					else:
 						self.__file_writer.write_in_file(data)
 				else:
-					print("Primesc: " + str(data_readed))
-					response = SWPacket(4, 0, 4, packet_type=PacketType.CHECK)
-					print("Trimit " + str(response.get_data()))
-					self.__s.sendto(response.get_data(), address)
-					continue
 				
 					print("Am primit ultimul pachet")
 					self.last_packet_received += 1
