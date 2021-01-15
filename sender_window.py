@@ -275,6 +275,8 @@ class Ui_MainWindow(QWidget):
     def on_window_slider(self, value):
         self.window_size_value_label.setText(str(value))
         self.__sender.set_window_size(value)
+        self.write_in_log("S-a setat dimensiunea ferestrei la " + str(value) + " pachete.")
+
 
 
     def on_packet_slider(self, value):
@@ -287,14 +289,18 @@ class Ui_MainWindow(QWidget):
     def setTimeout(self):
         timeout = self.timeout_text_field.text()
         self.__sender.set_timeout(int(timeout) / 1000)
+        self.write_in_log("S-a setat valoarea timeout-ului la  " + str(timeout) + " milisecunde.")
+
 
     def setPort(self):
         port = self.port_text_field.text()
         if(int(port) > 65535):
-            QMessageBox.about(self, "Eroare!", "Valoarea " + port + " este invalida! ( 0 - 255)" )
+            QMessageBox.about(self, "Eroare!", "Valoarea " + port + " este invalida! ( 0 - 65535)" )
             return
         else:
             self.__sender.set_receiver_port(int(port))
+         self.write_in_log("S-a setat portul pe valoarea " + str(port) + ".")
+
 
     def setIP(self):
         ip1 = self.ip_text_field_1.text()
@@ -321,6 +327,8 @@ class Ui_MainWindow(QWidget):
         self.__sender.set_receiver_ip(ip1 + "." + ip2 + "." + ip3 + "." + ip4)
         if(ip1 + "." + ip2 + "." + ip3 + "." + ip4 != Sender.DEFAULT_RECEIVER_IP):
             self.__sender.set_local_ip_address()
+        self.write_in_log("S-a setat IP-ul cu adresa "  + p1 + "." + ip2 + "." + ip3 + "." + ip4)
+
 
     def openFileNamesDialog(self):
         options = QFileDialog.Options()
