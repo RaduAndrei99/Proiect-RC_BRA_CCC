@@ -52,11 +52,11 @@ class Receiver(QObject):
 
 	signal = pyqtSignal(str)
 
-	DATA_PACKET_SIZE = 68
+	DATA_PACKET_SIZE = 5000
 	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
-	DATA_SIZE = 64
+	DATA_SIZE = 4096
 	PACKET_HEADER_SIZE = 4
 
 	SW_SIZE = 10
@@ -129,6 +129,7 @@ class Receiver(QObject):
 					else:
 						self.__file_writer.write_in_file(data)
 				elif type == PacketType.INIT:
+					print(name)
 					name += data.decode("ascii")
 					start = time.time()
 				else:

@@ -11,6 +11,7 @@ import os
 from datetime import datetime 
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 
+import binascii
 
 os.system('cls')
 
@@ -56,7 +57,7 @@ class Sender(QObject):
 		self.__ps = PackingSystem() #obiectul pentru impachetarea fisierelor
 		self.__ups = UnPackingSystem(4, 0) #obiechtul pentru despachetare
 
-		self.__window_size = 10 #lungimea ferestrei
+		self.__window_size = 100 #lungimea ferestrei
 		self.__next_lowest_package = 1 #valoarea pana la urmatorul cel mai mic pachet din fereastra
 
 		self.__current_packet_number = 0 #pachetul curent care este trimis
@@ -64,8 +65,8 @@ class Sender(QObject):
 		self.__packages_sent_and_received = 0 #numarul de pachete trimise si validate la un moment dat
 		self.__lowest_window_package = 0 #pachetul cu numarul de ordine cel mai mic din fereastra curenta
 
-		self.__packet_size = 68 #lungimea pachetului 
-		self.__packet_data_size = 64 #lungimea datelor dintr-un pachet
+		self.__packet_size = 5000 #lungimea pachetului 
+		self.__packet_data_size = 4096 #lungimea datelor dintr-un pachet
 		self.__packet_header_size = 4 #lungimea header-ului din pachet
 
 		self.__recent_packets_sent = {} #un dictionar folosit pentru a stoca pachetele recent trimise pentru a le avea la "indemana" in cazul in care trebuie sa fie retransmise
@@ -179,21 +180,25 @@ class Sender(QObject):
 		file_name = self.__path.split("/")[-1]
 
 		if len(file_name) > self.__MAX_FILE_NAME_SIZE:
-			file_name = file_name[0:64-len(file_name.split(".")[-1])] + file_name.split(".")[-1]
+			file_name = file_name[0:self.__packet_data_size-len(file_name.split(".")[-1])] + file_name.split(".")[-1]
 
 		first_packet.store_data(bytes(file_name, 'utf-8'))
+		first_packet.make_first_packet()
 
 		packets_to_send = 0
+
 		if self.__ps.get_file_size() % self.__ps.get_data_size_in_bytes() != 0:
 			packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3
 		else:
 			packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
 
-		first_packet.set_packet_number(packets_to_send)
+		first_packet.set_packets_to_send(packets_to_send.to_bytes(3, byteorder="big"))
 
 		count += 1
 
 		self.__buffer.put(first_packet)
+		print(binascii.hexlify(first_packet.get_data()))
+		print(len(first_packet.get_data()))
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
 			if self.__sender_run_flag == True:
 				self.__condition.acquire()
