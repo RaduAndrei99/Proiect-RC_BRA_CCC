@@ -299,7 +299,7 @@ class Ui_MainWindow(QWidget):
             return
         else:
             self.__sender.set_receiver_port(int(port))
-         self.write_in_log("S-a setat portul pe valoarea " + str(port) + ".")
+        self.write_in_log("S-a setat portul pe valoarea " + str(port) + ".")
 
 
     def setIP(self):
