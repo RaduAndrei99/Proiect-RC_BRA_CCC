@@ -198,6 +198,7 @@ class Sender(QObject):
 
 		self.__buffer.put(first_packet)
 		print(binascii.hexlify(first_packet.get_data()))
+		print(first_packet.get_data())
 		print(len(first_packet.get_data()))
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
 			if self.__sender_run_flag == True:

@@ -27,6 +27,7 @@ class FileWriter:
 		self.__output_file = open(self.__filename, "wb")
 
 	def close_file(self):
+		self.__is_open = False
 		self.__output_file.close()
 
 	def is_open(self):

@@ -7,7 +7,7 @@ from receiver import Receiver
 from PyQt5.QtCore import pyqtSignal
 import threading
 import sys
-import time
+from datetime import datetime
 
 class ReceiverGUI(object):
 
@@ -19,7 +19,13 @@ class ReceiverGUI(object):
         self.probability = 0
 
         self.receiver = Receiver()
-        self.receiver.signal.connect(self.write_in_log)
+        self.receiver.log_signal.connect(self.write_in_log)
+        self.receiver.finish_signal.connect(self.receiver_finished)
+        self.receiver.loading_bar_signal.connect(self.update_loading_bar)
+        self.receiver.set_total_nr_of_packets_signal.connect(self.set_total_nr_of_packets)
+
+        self.total_nr_of_packets = -1
+        self.one_percent_value = -1
 
     def setupUi(self, ReceiverWindow):
         ReceiverWindow.setObjectName("ReceiverWindow")
@@ -57,10 +63,10 @@ class ReceiverGUI(object):
         self.probability_line_edit = QtWidgets.QLineEdit(self.formLayoutWidget)
         self.probability_line_edit.setObjectName("probability_line_edit")
         self.formLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.probability_line_edit)
-        self.progressBar = QtWidgets.QProgressBar(self.formLayoutWidget)
-        self.progressBar.setProperty("value", 0)
-        self.progressBar.setObjectName("progressBar")
-        self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.progressBar)
+        self.progress_bar = QtWidgets.QProgressBar(self.formLayoutWidget)
+        self.progress_bar.setProperty("value", 0)
+        self.progress_bar.setObjectName("progress_bar")
+        self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.progress_bar)
         self.progres_bar_label = QtWidgets.QLabel(self.formLayoutWidget)
         self.progres_bar_label.setObjectName("progres_bar_label")
         self.formLayout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.progres_bar_label)
@@ -173,9 +179,6 @@ class ReceiverGUI(object):
         self.loopback_radio_button.setText(_translate("ReceiverWindow", "Adresa IP de loopback:"))
         self.lan_radio_button.setText(_translate("ReceiverWindow", "Adresa IP din LAN:"))
 
-        self.loopback_radio_button.toggled.connect(self.on_radio_button)
-        self.lan_radio_button.toggled.connect(self.on_radio_button)
-
         self.loopback_line_edit_1.setText(_translate("ReceiverWindow", "127"))
         self.loopback_line_edit_2.setText(_translate("ReceiverWindow", "0"))
         self.loopback_line_edit_3.setText(_translate("ReceiverWindow", "0"))
@@ -195,40 +198,59 @@ class ReceiverGUI(object):
         self.port_line_edit.setText(_translate("ReceiverWindow", "1234"))
         self.port_line_edit.setValidator(QIntValidator(1234, 65535))
 
-    def on_radio_button(self):
+    def set_total_nr_of_packets(self, total_nr_of_packets):
+        self.total_nr_of_packets = total_nr_of_packets
+        self.one_percent_value = float(total_nr_of_packets / 100)
+        print("Nr total de pachete este: " + str(self.total_nr_of_packets))
+        print("1%: " + str(self.one_percent_value))
+
+    def update_loading_bar(self, packet_nr):
+        #print("Procentul este: " + str(int(packet_nr / self.one_percent_value)))
+        self.progress_bar.Value = int(packet_nr / self.one_percent_value)
+
+    def acquie_data(self):
         if self.loopback_radio_button.isChecked():
             self.ip_address = "127.0.0.1"
         elif self.lan_radio_button.isChecked():
             self.ip_address = self.lan_line_edit_1.text() + '.' + self.lan_line_edit_2.text() + '.' + self.lan_line_edit_3.text() + '.' + self.lan_line_edit_4.text()
 
+        self.probability = int(self.probability_line_edit.text())
+
+        try:
+            self.port = int(self.port_line_edit.text())
+            if self.port < 1234:
+                raise ValueError("Portul trebuie sa fie cuprins intre 1234 si 65535.")
+
+        except ValueError as e:
+            msg = QMessageBox()
+            msg.setStyleSheet("QLabel{min-width: 250px;}");
+            msg.setWindowTitle("Eroare!")
+            msg.setInformativeText(str(e))
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+            return
+
+
+
     def write_in_log(self, message):
         self.log_plain_text.appendPlainText(message)
 
+    def receiver_finished(self):
+        self.start_stop_button.setChecked(False)
+        self.start_stop_button.setText("Start Receiver")
+
     def start_receiver(self):
 
+        self.acquie_data()
+
         if self.start_stop_button.isChecked() == True:
-
-            self.probability = int(self.probability_line_edit.text())
-
-            try:
-                self.port = int(self.port_line_edit.text())
-                if self.port < 1234:
-                    raise ValueError("Portul trebuie sa fie cuprins intre 1234 si 65535.")
-
-            except ValueError as e:
-                msg = QMessageBox()
-                msg.setStyleSheet("QLabel{min-width: 250px;}");
-                msg.setWindowTitle("Eroare!")
-                msg.setInformativeText(str(e))
-                msg.setStandardButtons(QMessageBox.Ok)
-                msg.exec_()
-                return
 
             self.receiver.set_ip_address(self.ip_address)
             self.receiver.set_port(self.port)
             self.receiver.set_probability(self.probability)
 
             self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
+            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Probabilitatea de pierdere a pachetelor este: " + str(self.probability))
 
             self.thread = threading.Thread(target=self.receiver.start_receiver)
             self.thread.start()

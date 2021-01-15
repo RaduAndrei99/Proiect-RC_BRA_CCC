@@ -15,3 +15,8 @@ class UnPackingSystem:
 
 		return (type, nr_packet, data)
 
+	def get_first_n_bytes_from_data_to_int(self, n, data):
+		return int.from_bytes(data[:n], "big")
+
+	def get_last_n_bytes_from_data(self, n, data):
+		return data[3:]
