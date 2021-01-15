@@ -8,6 +8,7 @@ from PyQt5.QtCore import pyqtSignal
 import threading
 import sys
 from datetime import datetime
+import time
 
 class ReceiverGUI(QWidget):
 
@@ -271,6 +272,7 @@ class ReceiverGUI(QWidget):
         if self.start_stop_button.isChecked() == True:
 
             if data_is_valid:
+                self.log_plain_text.clear()
                 self.receiver.set_ip_address(self.ip_address)
                 self.receiver.set_port(self.port)
                 self.receiver.set_probability(self.probability)
@@ -295,10 +297,12 @@ class ReceiverGUI(QWidget):
         data_packet.set_packet_number(0xFFFFFF)
         
         try:
-            self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
+            if self.receiver.is_socket_open() == True:
+                self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
         except PermissionError as pe:
-            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu aveti permisiunea de trimite pachete la adresa la care este facuta bind.")
-            self.receiver.close_connection()
+            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu aveti permisiunea de a trimite pachete la adresa la care ati facut bind.")
+        except OSError as os:
+            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu puteti timite pachete cu socket-ul inchis.")
 
         self.receiver.close_connection()
         self.start_stop_button.setText("Start Receiver")

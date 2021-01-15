@@ -70,6 +70,7 @@ class Receiver(QObject):
 		super(Receiver, self).__init__()
 
 		self.__error_occurred = False
+		self.__is_socket_open = False
 
 		self.__receiver_ip = 0
 		self.__receiver_port = 0
@@ -94,8 +95,9 @@ class Receiver(QObject):
 
 		try:
 			self.__s.bind((self.__receiver_ip, self.__receiver_port))
+			self.__is_socket_open = True
 		except OSError as os:
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu se poate face bind pe adresa precizata.")
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu se poate face bind pe adresa precizata. Adresa indisponibila.")
 			self.__error_occurred = True
 			return
 
@@ -147,8 +149,8 @@ class Receiver(QObject):
 			try:
 				self.__s.sendto(ack_packet.get_header(), address)
 			except OSError as os:
-				if nr_packet == 0xFFFFFF:
-					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul de terminare al transferului cu numarul: " + str(nr_packet))
+				if nr_packet != 0xFFFFFF:
+					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu puteti trimite packet de ACK cu socket-ul inchis.")
 					return
 
 			################################################
@@ -178,7 +180,6 @@ class Receiver(QObject):
 					self.__last_packet_received += 1
 					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
 					self.loading_bar_signal.emit(nr_packet + 1)
-					self.__is_running = False
 					break
 		
 				self.__last_packet_received += 1
@@ -209,8 +210,6 @@ class Receiver(QObject):
 					else:
 						self.__last_packet_received += 1
 						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
-						#self.loading_bar_signal.emit(nr_packet + 1)
-						self.__is_running = False
 						break
 
 					self.__last_packet_received += 1
@@ -232,11 +231,9 @@ class Receiver(QObject):
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Procentul de pachete pierdute este: " + str(100 * float("{:.4f}".format(float(self.__nr_of_packets_lost/self.__nr_of_packets_recv), 2))) + "%")
 		else:
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
-			self.close_connection()
 
 		self.finish_signal.emit()
 		self.reset_receiver()
-		#self.close_connection()
 
 	def set_ip_address(self, ip_address):
 		self.__receiver_ip = ip_address
@@ -261,6 +258,10 @@ class Receiver(QObject):
 
 	def close_connection(self):
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Socket inchis.")
+		self.__is_socket_open = False
 		self.__s.close()
+
+	def is_socket_open(self):
+		return self.__is_socket_open
 
 from receiver_window import ReceiverGUI
