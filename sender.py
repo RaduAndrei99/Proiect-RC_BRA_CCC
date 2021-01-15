@@ -108,6 +108,8 @@ class Sender(QObject):
 
 	def start_sender(self):
 		self.__sender_run_flag = True
+		self.__recent_packets_sent.clear()
+		self.__recent_ACK_received.clear()
 
 		thread_1 = threading.Thread(target=self.wait_for_ACK)
 		thread_2 = threading.Thread(target=self.send_packages_to_buffer)
@@ -122,60 +124,65 @@ class Sender(QObject):
 		thread_3.join()
 
 		self.file_sent_signal.emit(True)
-		
+
 	def wait_for_ACK(self):
-		packet = SWPacket(4,0,4,packet_type=PacketType.ACK)
-		last_packet_acknowledged = False
-		self.__valid == False
-		while 1:
-			try:
-				data_readed, address = self.__s.recvfrom(4)
-				packet.create_packet(data_readed)
-				package_type, nr_packet, data = self.__ups.unpack(packet)
+		try:
+			packet = SWPacket(4,0,4,packet_type=PacketType.ACK)
+			last_packet_acknowledged = False
+			self.__valid == False
+			while 1:
+				if self.__sender_run_flag == True:
+					data_readed, address = self.__s.recvfrom(4)
+					packet.create_packet(data_readed)
+					package_type, nr_packet, data = self.__ups.unpack(packet)
 
-				if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
+					if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
 
-					self.__mutex.acquire()
-					try:
-						self.__recent_packets_sent.pop(nr_packet)
-					except KeyError:
-						continue
-					finally:
-						self.__mutex.release()
+						self.__mutex.acquire()
+						try:
+							self.__recent_packets_sent.pop(nr_packet)
+						except KeyError:
+							continue
+						finally:
+							self.__mutex.release()
+							
+						self.__packages_sent_and_received += 1
 						
-					self.__packages_sent_and_received += 1
-					
-					self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Am primit raspuns pozitiv pentru " + str(nr_packet))	
+						self.log_message_signal.emit("Am primit raspuns pozitiv pentru " + str(nr_packet))	
 
-					if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2 or last_packet_acknowledged == True:
-						last_packet_acknowledged = True
-						if bool(self.__recent_packets_sent) == False:
-							self.__valid = True
-							break
-					
-					if nr_packet == self.__lowest_window_package:
-						for i in range(self.__lowest_window_package + 1, self.__lowest_window_package + self.__window_size + 1):
-							if i not in self.__recent_ACK_received:
-								for k in range(self.__lowest_window_package + 1, i):
-									self.__recent_ACK_received.pop(k)
-								self.__lowest_window_package = i
+						if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2 or last_packet_acknowledged == True:
+							last_packet_acknowledged = True
+							if bool(self.__recent_packets_sent) == False:
+								self.__valid = True
 								break
-					else:
-						self.__recent_ACK_received[nr_packet] = nr_packet
-			except ConnectionResetError as e:
-				self.__sender_run_flag = False
-				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Conexiunea s-a inchis dintr-o cauza necunoscuta.")
-				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " " + str(e))
-				self.__recent_packets_sent.clear()
-				self.__recent_ACK_received.clear()
-				with self.__buffer.mutex:
-					self.__buffer.queue.clear()
-				self.__s.close()
+						
+						if nr_packet == self.__lowest_window_package:
+							for i in range(self.__lowest_window_package + 1, self.__lowest_window_package + self.__window_size + 1):
+								if i not in self.__recent_ACK_received:
+									for k in range(self.__lowest_window_package + 1, i):
+										self.__recent_ACK_received.pop(k)
+									self.__lowest_window_package = i
+									break
 
-				return
+						else:
+							self.__recent_ACK_received[nr_packet] = nr_packet
+				else:
+					break
+				
+		except Exception as e:
+			self.__sender_run_flag = False
+			self.log_message_signal.emit("Conexiunea s-a inchis dintr-o cauza necunoscuta.")
+			self.log_message_signal.emit(str(e))
+			self.__recent_packets_sent.clear()
+			self.__recent_ACK_received.clear()
+			with self.__buffer.mutex:
+				self.__buffer.queue.clear()
+			self.__s.close()
 
-	
-		self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " S-a terminat thread-ul care asteapta mesaje de ACK.")
+			return
+
+
+		self.log_message_signal.emit("S-a terminat thread-ul care asteapta mesaje de ACK.")
 
 
 	def send_packages_to_buffer(self):	
@@ -190,7 +197,8 @@ class Sender(QObject):
 		file_name = self.__path.split("/")[-1]
 
 		if len(file_name) > self.__MAX_FILE_NAME_SIZE:
-			file_name = file_name[0:self.__packet_data_size-len(file_name.split(".")[-1])] + file_name.split(".")[-1]
+			file_name = file_name[0:self.__MAX_FILE_NAME_SIZE-len(file_name.split(".")[-1])-1] + "."  + file_name.split(".")[-1]
+			print(file_name)
 
 		first_packet.store_data(bytes(file_name, 'utf-8'))
 		first_packet.make_first_packet()
@@ -264,7 +272,7 @@ class Sender(QObject):
 
 			while self.__current_packet_number < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3:
 				if self.__sender_run_flag == True:
-					if self.__current_packet_number >= self.__lowest_window_package and self.__current_packet_number <= self.__lowest_window_package + self.__window_size:
+					if self.__current_packet_number >= self.__lowest_window_package and self.__current_packet_number < self.__lowest_window_package + self.__window_size:
 						self.__condition.acquire()
 						if self.__buffer.qsize() == 0:
 							self.__condition.wait()
@@ -291,7 +299,6 @@ class Sender(QObject):
 				if self.__valid == True:
 						self.__s.close()
 			self.log_message_signal.emit("S-a terminat thread-ul care trimite fisiere.")
-			
 		except Exception as e:
 			self.__sender_run_flag = False
 			self.log_message_signal.emit("Conexiunea s-a inchis dintr-o cauza necunoscuta.")
@@ -329,7 +336,6 @@ class Sender(QObject):
 
 			test_packet = SWPacket(4, 0, 4, packet_type=PacketType.CHECK)
 
-			print(self.__receiver_ip + " " + str(self.__receiver_port))
 			self.__s.sendto(test_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
 			data_readed, address = self.__s.recvfrom(4)
 
