@@ -116,6 +116,8 @@ class Receiver(QObject):
 				self.__s.sendto(data_readed, address)
 				continue
 
+			data_packet.create_packet(data_readed)
+			type, nr_packet, data = self.__ups.unpack(data_packet)
 
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
@@ -187,7 +189,7 @@ class Receiver(QObject):
 					else:
 						self.__last_packet_received += 1
 						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
-						self.loading_bar_signal.emit(nr_packet + 1)
+						#self.loading_bar_signal.emit(nr_packet + 1)
 						self.__is_running = False
 						break
 
@@ -196,7 +198,7 @@ class Receiver(QObject):
 			elif nr_packet > self.__last_packet_received + 1:
 				self.__SWR[nr_packet] = (type, data)
 
-			self.loading_bar_signal.emit(nr_packet + 1) # Update loading bar
+			self.loading_bar_signal.emit(self.__last_packet_received + 1) # Update loading bar
 
 			###################################################
 
