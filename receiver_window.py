@@ -201,12 +201,9 @@ class ReceiverGUI(object):
     def set_total_nr_of_packets(self, total_nr_of_packets):
         self.total_nr_of_packets = total_nr_of_packets
         self.one_percent_value = float(total_nr_of_packets / 100)
-        print("Nr total de pachete este: " + str(self.total_nr_of_packets))
-        print("1%: " + str(self.one_percent_value))
 
     def update_loading_bar(self, packet_nr):
-        #print("Procentul este: " + str(int(packet_nr / self.one_percent_value)))
-        self.progress_bar.Value = int(packet_nr / self.one_percent_value)
+        self.progress_bar.setValue(int(packet_nr / self.one_percent_value))
 
     def acquie_data(self):
         if self.loopback_radio_button.isChecked():
@@ -254,6 +251,7 @@ class ReceiverGUI(object):
 
             self.thread = threading.Thread(target=self.receiver.start_receiver)
             self.thread.start()
+            self.progress_bar.setValue(0)
             self.start_stop_button.setText("Stop Receiver")
         else:
             self.receiver.set_is_running(False)

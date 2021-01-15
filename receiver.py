@@ -106,7 +106,7 @@ class Receiver(QObject):
 		self.__last_packet_received = -1
 		self.__total_nr_of_packets_to_receive = -1
 
-		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta mesaje...")
+		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta pachete...")
 		while self.__is_running:
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
@@ -118,6 +118,7 @@ class Receiver(QObject):
 
 
 			if is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet
+				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
 				continue
 
 			data_packet.create_packet(data_readed)
@@ -132,17 +133,18 @@ class Receiver(QObject):
 			if nr_packet == self.__last_packet_received + 1: # Mecanism sliding window
 				
 				if type == PacketType.DATA:
-					print(name)
 					if self.__file_writer.is_open() == False:
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am deschis fisierul cu numele: " + name)
 						self.__file_writer.write_in_file(data)
 					else:
 						self.__file_writer.write_in_file(data)
+
 				elif type == PacketType.INIT:
 					if nr_packet == self.FIRST_PACKET:
 						self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
-						print("Numarul total de pachete este: " + str(self.__total_nr_of_packets_to_receive))
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Numarul total de pachete de primit este: " + str(self.__total_nr_of_packets_to_receive))
 						self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
 						name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_COUNTER_SIZE, data).decode("ascii")
 						start = time.time()
@@ -150,8 +152,9 @@ class Receiver(QObject):
 						name += data.decode("ascii")
 
 				else:
-					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
 					self.__last_packet_received += 1
+					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
+					self.loading_bar_signal.emit(nr_packet + 1)
 					self.__is_running = False
 					break
 		
@@ -166,13 +169,15 @@ class Receiver(QObject):
 						if self.__file_writer.is_open() == False:
 							self.__file_writer.set_file_name(name)
 							self.__file_writer.open_file()
+							self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am deschis fisierul cu numele: " + name)
 							self.__file_writer.write_in_file(data)
 						else:
 							self.__file_writer.write_in_file(data)
+							
 					elif type == PacketType.INIT:
 						if nr_packet == FIRST_PACKET:
 							self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
-							print("Numarul total de pachete este: " + str(self.__total_nr_of_packets_to_receive))
+							self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Numarul total de pachete de primit este: " + str(self.__total_nr_of_packets_to_receive))
 							self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
 							name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_COUNTER_SIZE, data).decode("ascii")
 							start = time.time()
@@ -180,6 +185,8 @@ class Receiver(QObject):
 							name += data.decode("ascii")
 					else:
 						self.__last_packet_received += 1
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
+						self.loading_bar_signal.emit(nr_packet + 1)
 						self.__is_running = False
 						break
 
@@ -188,7 +195,7 @@ class Receiver(QObject):
 			elif nr_packet > self.__last_packet_received + 1:
 				self.__SWR[nr_packet] = (type, data)
 
-			self.loading_bar_signal.emit(nr_packet) # Update loading bar
+			self.loading_bar_signal.emit(nr_packet + 1) # Update loading bar
 
 			###################################################
 
