@@ -102,6 +102,7 @@ class Sender(QObject):
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
 
 		self.__s.bind((self.__sender_ip, self.__sender_port))
+		self.log_message_signal.emit("S-a facut bind pe adresa " + self.__sender_ip + " si portul " + str(self.__sender_port))
 
 	def start_sender(self):
 		self.__sender_run_flag = True
@@ -313,6 +314,7 @@ class Sender(QObject):
 
 			test_packet = SWPacket(4, 0, 4, packet_type=PacketType.CHECK)
 
+			print(self.__receiver_ip + " " + str(self.__receiver_port))
 			self.__s.sendto(test_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
 			data_readed, address = self.__s.recvfrom(4)
 
@@ -334,5 +336,15 @@ class Sender(QObject):
 	def set_packet_data_size(self, new_size):
 		self.__packet_data_size = new_size
 		self.__packet_size = new_size + Sender.DEFAULT_PACKET_HEADER_SIZE
+
+	def set_local_ip_address(self):
+		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		IP = 0
+		try:
+			s.connect(('10.255.255.255', 1))
+			IP = s.getsockname()[0]
+		except:
+			IP = '127.0.0.1' 
+		self.__sender_ip = IP
 
 from sender_window import Ui_MainWindow

@@ -319,6 +319,8 @@ class Ui_MainWindow(QWidget):
              return
 
         self.__sender.set_receiver_ip(ip1 + "." + ip2 + "." + ip3 + "." + ip4)
+        if(ip1 + "." + ip2 + "." + ip3 + "." + ip4 != Sender.DEFAULT_RECEIVER_IP):
+            self.__sender.set_local_ip_address()
 
     def openFileNamesDialog(self):
         options = QFileDialog.Options()
@@ -327,6 +329,7 @@ class Ui_MainWindow(QWidget):
         self.path_text_field.setText(str(files)[2:-2])
         self.__sender.set_file_path(str(files)[2:-2])
 
+
     def start_sender(self):
         try:
             if self.path_text_field.text() == "":
@@ -334,9 +337,7 @@ class Ui_MainWindow(QWidget):
                 return
 
             if self.get_ip_from_text_field() != "127.0.0.1":
-                host_name = socket.gethostname() 
-                host_ip = socket.gethostbyname(host_name) 
-                self.__sender.set_receiver_ip(host_ip)
+                self.__sender.set_local_ip_address()
          
 
             if self.__socket_created == False:
