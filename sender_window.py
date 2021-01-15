@@ -245,7 +245,7 @@ class Ui_MainWindow(QWidget):
 
     def on_slider(self, value):
         self.window_size_value_label.setText(str(value))
-        self.__sender.set_window_size(value)
+        #self.__sender.set_window_size(value)
 
     def setTimeout(self):
         pass

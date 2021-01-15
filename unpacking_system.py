@@ -19,4 +19,4 @@ class UnPackingSystem:
 		return int.from_bytes(data[:n], "big")
 
 	def get_last_n_bytes_from_data(self, n, data):
-		return data[-n:]
+		return data[3:]

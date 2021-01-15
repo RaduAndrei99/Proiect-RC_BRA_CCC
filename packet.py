@@ -50,10 +50,15 @@ class SWPacket:
 		return self.__byte_array[:self.__header_size]
 
 	def store_data(self, data_array_in_bytes):
-		self.__byte_array[4:self.__package_size] = data_array_in_bytes
+		if self.__byte_array[0] == PacketType.DATA:
+			self.__byte_array[4:self.__package_size] = data_array_in_bytes
+		elif self.__byte_array[0] == PacketType.INIT:
+			self.__byte_array[7:self.__package_size] = data_array_in_bytes
+		else:
+			raise "Cannot set data bytes for a package of type " + str(self.__byte_array[0])
 
 	def set_packet_number(self, pk_number):
-		if(pk_number < pow(2, 24) - 1):
+		if(pk_number < pow(2, 24)):
 			self.__byte_array[1:4] = pk_number.to_bytes(3, byteorder="big")
 
 	def create_packet(self, bytes_array):
@@ -62,6 +67,12 @@ class SWPacket:
 	def make_end_packet(self):
 		self.__byte_array[0] = 0xFF
 	
+	def make_first_packet(self):
+		self.__byte_array[0] = 0x0
+	
+	def set_packets_to_send(self, no_of_packets):
+		if self.__byte_array[0] == PacketType.INIT:
+			self.__byte_array[4:7] = no_of_packets
 
 if __name__ == '__main__':
 	packet = SWPacket(36,4,4,packet_type=PacketType.ACK)

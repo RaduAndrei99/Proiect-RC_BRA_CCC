@@ -55,13 +55,13 @@ class Receiver(QObject):
 	set_total_nr_of_packets_signal = pyqtSignal(int)
 	loading_bar_signal = pyqtSignal(int)
 
-	DATA_PACKET_SIZE = 68
+	DATA_PACKET_SIZE = 5000
 	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
 	PACKET_TYPE_SIZE = 1
 	PACKET_COUNTER_SIZE = 3
-	DATA_SIZE = 64
+	DATA_SIZE = 4096
 	PACKET_HEADER_SIZE = PACKET_TYPE_SIZE + PACKET_COUNTER_SIZE
 
 	FIRST_PACKET = 0
@@ -132,6 +132,7 @@ class Receiver(QObject):
 			if nr_packet == self.__last_packet_received + 1: # Mecanism sliding window
 				
 				if type == PacketType.DATA:
+					print(name)
 					if self.__file_writer.is_open() == False:
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
