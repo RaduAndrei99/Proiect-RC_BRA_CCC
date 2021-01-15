@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="57d248b6-47b4-4b6e-b428-6766b33dd8bf" name="Default Changelist" comment="">
+    <list default="true" id="5345c00c-edf2-472c-96e0-ad69fcae76a0" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/Project.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/new_Capture.PNG" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/new_music.mp3" beforeDir="false" afterPath="$PROJECT_DIR$/new_music.mp3" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -12,7 +18,7 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectId" id="1n6clUqpFmtk0SpqP19senrg13E" />
+  <component name="ProjectId" id="1n7JTScEwsVIehnBqqPKpQuegdZ" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -23,11 +29,11 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="57d248b6-47b4-4b6e-b428-6766b33dd8bf" name="Default Changelist" comment="" />
-      <created>1610714132870</created>
+      <changelist id="5345c00c-edf2-472c-96e0-ad69fcae76a0" name="Default Changelist" comment="" />
+      <created>1610735224375</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1610714132870</updated>
+      <updated>1610735224375</updated>
     </task>
     <servers />
   </component>

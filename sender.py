@@ -122,67 +122,60 @@ class Sender(QObject):
 		thread_3.join()
 
 		self.file_sent_signal.emit(True)
-
+		
 	def wait_for_ACK(self):
-		try:
-			packet = SWPacket(4,0,4,packet_type=PacketType.ACK)
-			last_packet_acknowledged = False
-			self.__valid == False
-			while 1:
-				if self.__sender_run_flag == True:
-					data_readed, address = self.__s.recvfrom(4)
-					packet.create_packet(data_readed)
-					package_type, nr_packet, data = self.__ups.unpack(packet)
+		packet = SWPacket(4,0,4,packet_type=PacketType.ACK)
+		last_packet_acknowledged = False
+		self.__valid == False
+		while 1:
+			try:
+				data_readed, address = self.__s.recvfrom(4)
+				packet.create_packet(data_readed)
+				package_type, nr_packet, data = self.__ups.unpack(packet)
 
-					if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
+				if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
 
-						self.__mutex.acquire()
-						try:
-							self.__recent_packets_sent.pop(nr_packet)
-						except KeyError:
-							continue
-						finally:
-							self.__mutex.release()
-							
-						self.__packages_sent_and_received += 1
+					self.__mutex.acquire()
+					try:
+						self.__recent_packets_sent.pop(nr_packet)
+					except KeyError:
+						continue
+					finally:
+						self.__mutex.release()
 						
-						self.log_message_signal.emit("Am primit raspuns pozitiv pentru " + str(nr_packet))	
+					self.__packages_sent_and_received += 1
+					
+					self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Am primit raspuns pozitiv pentru " + str(nr_packet))	
 
-						if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2 or last_packet_acknowledged == True:
-							last_packet_acknowledged = True
-							if bool(self.__recent_packets_sent) == False:
-								self.__valid = True
+					if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2 or last_packet_acknowledged == True:
+						last_packet_acknowledged = True
+						if bool(self.__recent_packets_sent) == False:
+							self.__valid = True
+							break
+					
+					if nr_packet == self.__lowest_window_package:
+						for i in range(self.__lowest_window_package + 1, self.__lowest_window_package + self.__window_size + 1):
+							if i not in self.__recent_ACK_received:
+								for k in range(self.__lowest_window_package + 1, i):
+									self.__recent_ACK_received.pop(k)
+								self.__lowest_window_package = i
 								break
-						
-						if nr_packet == self.__lowest_window_package:
-							for i in range(self.__lowest_window_package + 1, self.__lowest_window_package + self.__window_size + 1):
-								if i not in self.__recent_ACK_received:
-									self.log_message_signal.emit("Nu e pachetul " + str(i))	
-									for k in range(self.__lowest_window_package + 1, i):
-										self.__recent_ACK_received.pop(k)
-									self.__lowest_window_package = i
-									break
-						else:
-							self.__recent_ACK_received[nr_packet] = nr_packet
+					else:
+						self.__recent_ACK_received[nr_packet] = nr_packet
+			except ConnectionResetError as e:
+				self.__sender_run_flag = False
+				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " Conexiunea s-a inchis dintr-o cauza necunoscuta.")
+				self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " " + str(e))
+				self.__recent_packets_sent.clear()
+				self.__recent_ACK_received.clear()
+				with self.__buffer.mutex:
+					self.__buffer.queue.clear()
+				self.__s.close()
 
-						self.log_message_signal.emit("Cel mai mic: " + str(self.__lowest_window_package))	
-				else:
-					break
-				
-		except Exception as e:
-			self.__sender_run_flag = False
-			self.log_message_signal.emit("Conexiunea s-a inchis dintr-o cauza necunoscuta.")
-			self.log_message_signal.emit(str(e))
-			self.__recent_packets_sent.clear()
-			self.__recent_ACK_received.clear()
-			with self.__buffer.mutex:
-				self.__buffer.queue.clear()
-			self.__s.close()
+				return
 
-			return
-
-
-		self.log_message_signal.emit("S-a terminat thread-ul care asteapta mesaje de ACK.")
+	
+		self.log_message_signal.emit("[" + str(datetime.now().time()) + "]"  + " S-a terminat thread-ul care asteapta mesaje de ACK.")
 
 
 	def send_packages_to_buffer(self):	
