@@ -55,7 +55,7 @@ class Receiver(QObject):
 	set_total_nr_of_packets_signal = pyqtSignal(int)
 	loading_bar_signal = pyqtSignal(int)
 
-	DATA_PACKET_SIZE = 5000
+	DATA_PACKET_SIZE = 4100
 	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
@@ -170,7 +170,7 @@ class Receiver(QObject):
 						else:
 							self.__file_writer.write_in_file(data)
 					elif type == PacketType.INIT:
-						if nr_packet == FIRST_PACKET:
+						if nr_packet == Receiver.FIRST_PACKET:
 							self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
 							print("Numarul total de pachete este: " + str(self.__total_nr_of_packets_to_receive))
 							self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)

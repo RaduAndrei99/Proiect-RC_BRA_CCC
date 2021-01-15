@@ -6,7 +6,7 @@ from packet import SWPacket, PacketType
 """
 class PackingSystem:
 	def __init__(self):
-		self.__packet_size_in_bytes = 5000
+		self.__packet_size_in_bytes = 4100
 		self.__data_size_in_bytes = 4096
 
 		self.__packet_number = 1
