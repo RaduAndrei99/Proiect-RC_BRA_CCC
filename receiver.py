@@ -114,7 +114,7 @@ class Receiver(QObject):
 	def start_receiver(self):
 
 		if self.__error_occurred == True:
-			self.__error_occurred == False
+			self.__error_occurred = False
 			return
 
 		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
@@ -257,7 +257,7 @@ class Receiver(QObject):
 		return self.__s
 
 	def close_connection(self):
-		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Socket inchis.")
+		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Socket-ul s-a inchis.")
 		self.__is_socket_open = False
 		self.__s.close()
 
