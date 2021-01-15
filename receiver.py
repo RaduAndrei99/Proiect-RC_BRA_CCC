@@ -59,8 +59,10 @@ class Receiver(QObject):
 	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
+	PACKET_TYPE_SIZE = 1
+	PACKET_COUNTER_SIZE = 3
 	DATA_SIZE = 64
-	PACKET_HEADER_SIZE = 4
+	PACKET_HEADER_SIZE = PACKET_TYPE_SIZE + PACKET_COUNTER_SIZE
 
 	FIRST_PACKET = 0
 
@@ -109,8 +111,8 @@ class Receiver(QObject):
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
-			if int.from_bytes(data_readed[:1], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
-				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de confirmare al conexiunii de la adresa: " + str(address))
+			if int.from_bytes(data_readed[:self.PACKET_HEADER_SIZE - self.PACKET_COUNTER_SIZE], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
+				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de testare a conexiunii de la adresa: " + str(address))
 				self.__s.sendto(data_readed, address)
 				continue
 
@@ -138,15 +140,14 @@ class Receiver(QObject):
 						self.__file_writer.write_in_file(data)
 				elif type == PacketType.INIT:
 					if nr_packet == self.FIRST_PACKET:
-						self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_HEADER_SIZE - 1, data)
+						self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
 						print("Numarul total de pachete este: " + str(self.__total_nr_of_packets_to_receive))
 						self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
-						name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_HEADER_SIZE - 1, data).decode("ascii")
+						name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_COUNTER_SIZE, data).decode("ascii")
 						start = time.time()
 					else:
 						name += data.decode("ascii")
 
-					continue
 				else:
 					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet.")
 					self.__last_packet_received += 1
@@ -169,9 +170,10 @@ class Receiver(QObject):
 							self.__file_writer.write_in_file(data)
 					elif type == PacketType.INIT:
 						if nr_packet == FIRST_PACKET:
-							self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_HEADER_SIZE - 1, data)
+							self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
+							print("Numarul total de pachete este: " + str(self.__total_nr_of_packets_to_receive))
 							self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
-							name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_HEADER_SIZE - 1, data).decode("ascii")
+							name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_COUNTER_SIZE, data).decode("ascii")
 							start = time.time()
 						else:
 							name += data.decode("ascii")
@@ -193,6 +195,8 @@ class Receiver(QObject):
 
 		if self.__file_writer.is_open():
 			self.__file_writer.close_file()
+			
+		if self.__total_nr_of_packets_to_receive == nr_packet:
 			end = time.time()
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))

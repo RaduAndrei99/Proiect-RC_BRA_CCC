@@ -205,7 +205,7 @@ class ReceiverGUI(object):
         print("1%: " + str(self.one_percent_value))
 
     def update_loading_bar(self, packet_nr):
-        print(int(packet_nr / self.one_percent_value))
+        print("Procentul este: " + str(int(packet_nr / self.one_percent_value)))
         self.progress_bar.Value = int(packet_nr / self.one_percent_value)
 
     def acquie_data(self):
