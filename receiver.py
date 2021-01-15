@@ -179,12 +179,10 @@ class Receiver(QObject):
 							name += data.decode("ascii")
 					else:
 						self.__last_packet_received += 1
-						self.signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit ultimul pachet in while-ul interior.")
 						self.__is_running = False
 						break
 
 					self.__last_packet_received += 1
-					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Sunt in while-ul interior")
 
 			elif nr_packet > self.__last_packet_received + 1:
 				self.__SWR[nr_packet] = (type, data)
