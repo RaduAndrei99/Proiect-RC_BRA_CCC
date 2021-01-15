@@ -204,9 +204,7 @@ class Sender(QObject):
 		count += 1
 
 		self.__buffer.put(first_packet)
-		print(binascii.hexlify(first_packet.get_data()))
-		print(first_packet.get_data())
-		print(len(first_packet.get_data()))
+
 		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
 			if self.__sender_run_flag == True:
 				self.__condition.acquire()
@@ -317,8 +315,8 @@ class Sender(QObject):
 
 			self.__s.sendto(test_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
 			data_readed, address = self.__s.recvfrom(4)
-			print(str(data_readed))
-			if data_readed != None and data_readed[0] == b'3':
+
+			if data_readed != None and int.from_bytes(data_readed[:1], "big") == PacketType.CHECK:
 				self.log_message_signal.emit("Conexiunea este valida!")
 			else:
 				self.log_message_signal.emit("Conexiunea este invalida!")

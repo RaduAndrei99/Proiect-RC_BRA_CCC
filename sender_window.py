@@ -333,6 +333,12 @@ class Ui_MainWindow(QWidget):
                 QMessageBox.about(self, "Eroare!", "Trebuie sa alegeti un fisier de trimis!" )  
                 return
 
+            if self.get_ip_from_text_field() != "127.0.0.1":
+                host_name = socket.gethostname() 
+                host_ip = socket.gethostbyname(host_name) 
+                self.__sender.set_receiver_ip(host_ip)
+         
+
             if self.__socket_created == False:
                 self.__sender.create_socket("AF_INET", "SOCK_DGRAM")
                 self.__socket_created == True
@@ -346,12 +352,6 @@ class Ui_MainWindow(QWidget):
             self.set_timeout_button.setEnabled(False)
             self.start_sender_button.setEnabled(False)
 
-            if self.get_ip_from_text_field != "127.0.0.1":
-                host_name = socket.gethostname() 
-                host_ip = socket.gethostbyname(host_name) 
-                self.__sender.set_ip(host_ip)
-            else:
-                print("e ok")
 
         except Exception as e:
             QMessageBox.about(self, "Eroare!", "Eroare la pornirea sender-ului!" )  
