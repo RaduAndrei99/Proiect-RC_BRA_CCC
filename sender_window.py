@@ -289,7 +289,7 @@ class Ui_MainWindow(QWidget):
     def setTimeout(self):
         timeout = self.timeout_text_field.text()
         self.__sender.set_timeout(int(timeout) / 1000)
-        self.write_in_log("S-a setat valoarea timeout-ului la  " + str(timeout) + " milisecunde.")
+        self.write_in_log("S-a setat valoarea timeout-ului la " + str(timeout) + " milisecunde.")
 
 
     def setPort(self):
@@ -327,7 +327,7 @@ class Ui_MainWindow(QWidget):
         self.__sender.set_receiver_ip(ip1 + "." + ip2 + "." + ip3 + "." + ip4)
         if(ip1 + "." + ip2 + "." + ip3 + "." + ip4 != Sender.DEFAULT_RECEIVER_IP):
             self.__sender.set_local_ip_address()
-        self.write_in_log("S-a setat IP-ul cu adresa "  + p1 + "." + ip2 + "." + ip3 + "." + ip4)
+        self.write_in_log("S-a setat IP-ul cu adresa "  + ip1 + "." + ip2 + "." + ip3 + "." + ip4)
 
 
     def openFileNamesDialog(self):
