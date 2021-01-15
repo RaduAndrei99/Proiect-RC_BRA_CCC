@@ -45,7 +45,7 @@ def is_packet_lost(probability):
 	except Exception as e:
 		print(e)
 		sys.exit(1)
-	
+
 	return (random.randint(0, 99) < probability)
 
 class Receiver(QObject):
@@ -69,6 +69,8 @@ class Receiver(QObject):
 	def __init__(self):
 		super(Receiver, self).__init__()
 
+		self.__error_occurred = False
+
 		self.__receiver_ip = 0
 		self.__receiver_port = 0
 		self.__losing_packets_probability = 0
@@ -81,35 +83,50 @@ class Receiver(QObject):
 		self.__file_writer = FileWriter("")
 		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE, self.DATA_SIZE)
 
+		self.__nr_of_packets_recv = 0
+		self.__nr_of_packets_lost = 0
+
 	def create_socket(self, af_type, sock_type):
 
+		random.seed(datetime.now())
 		check_socket(af_type, sock_type)
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
 
 		try:
 			self.__s.bind((self.__receiver_ip, self.__receiver_port))
-		except:
-			self.__s.close()
-			self.__s.bind((self.__receiver_ip, self.__receiver_port))
+		except OSError as os:
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu se poate face bind pe adresa precizata.")
+			self.__error_occurred = True
+			return
 
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
+	def reset_receiver(self):
+		self.__is_running = True
+		self.__SWR.clear()
+		self.__last_packet_received = -1
+		self.__total_nr_of_packets_to_receive = -1
+		self.__nr_of_packets_lost = 0
+		self.__nr_of_packets_recv = 0
+
 	def start_receiver(self):
+
+		if self.__error_occurred == True:
+			self.__error_occurred == False
+			return
 
 		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
 
-		self.__is_running = True
-		self.__SWR.clear()
-		self.__last_packet_received = -1
-		self.__total_nr_of_packets_to_receive = -1
-
+		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta pachete...")
 		while self.__is_running:
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
+
+			self.__nr_of_packets_recv += 1
 
 			if int.from_bytes(data_readed[:self.PACKET_HEADER_SIZE - self.PACKET_COUNTER_SIZE], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
 				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de testare a conexiunii de la adresa: " + str(address))
@@ -125,11 +142,18 @@ class Receiver(QObject):
 			
 			if is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet
 				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
+				self.__nr_of_packets_lost += 1
 				continue
 
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul cu numarul: " + str(nr_packet))
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
-			self.__s.sendto(ack_packet.get_header(), address)
+			
+			try:
+				self.__s.sendto(ack_packet.get_header(), address)
+			except OSError as os:
+				if nr_packet == 0xFFFFFF:
+					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul de terminare al transferului cu numarul: " + str(nr_packet))
+					return
 
 			################################################
 
@@ -209,11 +233,14 @@ class Receiver(QObject):
 			end = time.time()
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Procentul de pachete pierdute este: " + str(100 * float("{:.4f}".format(float(self.__nr_of_packets_lost/self.__nr_of_packets_recv), 2))) + "%")
 		else:
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
+			self.close_connection()
 
 		self.finish_signal.emit()
-		self.close_connection()
+		self.reset_receiver()
+		#self.close_connection()
 
 	def set_ip_address(self, ip_address):
 		self.__receiver_ip = ip_address

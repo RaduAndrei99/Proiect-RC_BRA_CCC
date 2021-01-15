@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QMessageBox, QWidget
 from PyQt5.QtGui import QIntValidator
 from packet import SWPacket
 from packet import PacketType
@@ -9,9 +9,10 @@ import threading
 import sys
 from datetime import datetime
 
-class ReceiverGUI(object):
+class ReceiverGUI(QWidget):
 
     def __init__(self):
+        super().__init__()
         self.receiver = None
 
         self.ip_address = "127.0.0.1"
@@ -27,11 +28,13 @@ class ReceiverGUI(object):
         self.total_nr_of_packets = -1
         self.one_percent_value = -1
 
+        self.setupUi(self)
+
     def setupUi(self, ReceiverWindow):
         ReceiverWindow.setObjectName("ReceiverWindow")
         ReceiverWindow.setEnabled(True)
         ReceiverWindow.setFixedSize(750, 560)
-        ReceiverWindow.setDockNestingEnabled(False)
+        #ReceiverWindow.setDockNestingEnabled(False)
         self.centralwidget = QtWidgets.QWidget(ReceiverWindow)
         self.centralwidget.setMinimumSize(QtCore.QSize(731, 0))
         self.centralwidget.setObjectName("centralwidget")
@@ -151,7 +154,7 @@ class ReceiverGUI(object):
         self.log_label = QtWidgets.QLabel(self.centralwidget)
         self.log_label.setGeometry(QtCore.QRect(20, 200, 141, 17))
         self.log_label.setObjectName("log_label")
-        ReceiverWindow.setCentralWidget(self.centralwidget)
+        #ReceiverWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(ReceiverWindow)
         QtCore.QMetaObject.connectSlotsByName(ReceiverWindow)
@@ -198,6 +201,22 @@ class ReceiverGUI(object):
         self.port_line_edit.setText(_translate("ReceiverWindow", "1234"))
         self.port_line_edit.setValidator(QIntValidator(1234, 65535))
 
+    def closeEvent(self,event):
+
+        msgBox = QMessageBox()
+        msgBox.setStyleSheet("QLabel{min-width: 250px;}");
+        msgBox.setWindowTitle("Confirmati iesirea...")
+        msgBox.setInformativeText("Sunteti sigur ca doriti sa iesiti?\n")
+        msgBox.addButton(QtWidgets.QPushButton('Nu'), QMessageBox.NoRole)
+        msgBox.addButton(QtWidgets.QPushButton('Da'), QMessageBox.YesRole)
+        ret_val = msgBox.exec_()
+
+        if ret_val == 1:
+            self.forceCloseReceiver()
+            event.accept()
+        else:
+            event.ignore()
+
     def set_total_nr_of_packets(self, total_nr_of_packets):
         self.total_nr_of_packets = total_nr_of_packets
         self.one_percent_value = float(total_nr_of_packets / 100)
@@ -211,7 +230,16 @@ class ReceiverGUI(object):
         elif self.lan_radio_button.isChecked():
             self.ip_address = self.lan_line_edit_1.text() + '.' + self.lan_line_edit_2.text() + '.' + self.lan_line_edit_3.text() + '.' + self.lan_line_edit_4.text()
 
-        self.probability = int(self.probability_line_edit.text())
+        try:
+            self.probability = int(self.probability_line_edit.text())
+        except ValueError as ve:
+            msg = QMessageBox()
+            msg.setStyleSheet("QLabel{min-width: 250px;}");
+            msg.setWindowTitle("Eroare!")
+            msg.setInformativeText("Valoarea probabilitatii trebuie sa fie intre 0 si 100.")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec_()
+            return False
 
         try:
             self.port = int(self.port_line_edit.text())
@@ -225,9 +253,9 @@ class ReceiverGUI(object):
             msg.setInformativeText(str(e))
             msg.setStandardButtons(QMessageBox.Ok)
             msg.exec_()
-            return
+            return False
 
-
+        return True
 
     def write_in_log(self, message):
         self.log_plain_text.appendPlainText(message)
@@ -238,38 +266,52 @@ class ReceiverGUI(object):
 
     def start_receiver(self):
 
-        self.acquie_data()
+        data_is_valid = self.acquie_data()
 
         if self.start_stop_button.isChecked() == True:
 
-            self.receiver.set_ip_address(self.ip_address)
-            self.receiver.set_port(self.port)
-            self.receiver.set_probability(self.probability)
+            if data_is_valid:
+                self.receiver.set_ip_address(self.ip_address)
+                self.receiver.set_port(self.port)
+                self.receiver.set_probability(self.probability)
 
-            self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
-            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Probabilitatea de pierdere a pachetelor este: " + str(self.probability))
+                self.receiver.create_socket("AF_INET", "SOCK_DGRAM")
 
-            self.thread = threading.Thread(target=self.receiver.start_receiver)
-            self.thread.start()
-            self.progress_bar.setValue(0)
-            self.start_stop_button.setText("Stop Receiver")
+                self.thread = threading.Thread(target=self.receiver.start_receiver)
+                self.thread.start()
+                self.progress_bar.setValue(0)
+                self.start_stop_button.setText("Stop Receiver")
+            else:
+                self.start_stop_button.setChecked(False)
+                return
         else:
-            self.receiver.set_is_running(False)
+            self.forceCloseReceiver()
+
+    def forceCloseReceiver(self):
+        self.receiver.set_is_running(False)
             
-            data_packet = SWPacket(self.receiver.DATA_PACKET_SIZE, self.receiver.DATA_SIZE, self.receiver.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
-            data_packet.make_end_packet()
-            data_packet.set_packet_number(0xFFFFFF)
-            
+        data_packet = SWPacket(self.receiver.DATA_PACKET_SIZE, self.receiver.DATA_SIZE, self.receiver.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+        data_packet.make_end_packet()
+        data_packet.set_packet_number(0xFFFFFF)
+        
+        try:
             self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
-            self.start_stop_button.setText("Start Receiver")
+        except PermissionError as pe:
+            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu aveti permisiunea de trimite pachete la adresa la care este facuta bind.")
+            self.receiver.close_connection()
+
+        self.receiver.close_connection()
+        self.start_stop_button.setText("Start Receiver")
 
 
 if __name__ == "__main__":
     
     app = QtWidgets.QApplication(sys.argv)
-    ReceiverWindow = QtWidgets.QMainWindow()
-    ui = ReceiverGUI()
-    ui.setupUi(ReceiverWindow)
-    ReceiverWindow.show()
+    receiver_window = ReceiverGUI()
+    
+
+    #ui = ReceiverGUI()
+    #ui.setupUi(ReceiverWindow)
+    receiver_window.show()
     sys.exit(app.exec_())
 
