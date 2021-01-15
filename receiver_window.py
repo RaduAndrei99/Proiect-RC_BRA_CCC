@@ -4,10 +4,13 @@ from PyQt5.QtGui import QIntValidator
 from packet import SWPacket
 from packet import PacketType
 from receiver import Receiver
+from socket import socket
 from PyQt5.QtCore import pyqtSignal
 import threading
 import sys
 from datetime import datetime
+import time
+import socket
 
 class ReceiverGUI(QWidget):
 
@@ -115,17 +118,17 @@ class ReceiverGUI(QWidget):
         self.lan_line_edit_2 = QtWidgets.QLineEdit(self.centralwidget)
         self.lan_line_edit_2.setGeometry(QtCore.QRect(240, 120, 31, 21))
         self.lan_line_edit_2.setAlignment(QtCore.Qt.AlignCenter)
-        self.lan_line_edit_2.setReadOnly(False)
+        self.lan_line_edit_2.setReadOnly(True)
         self.lan_line_edit_2.setObjectName("lan_line_edit_2")
         self.lan_line_edit_1 = QtWidgets.QLineEdit(self.centralwidget)
         self.lan_line_edit_1.setGeometry(QtCore.QRect(200, 120, 31, 21))
         self.lan_line_edit_1.setAlignment(QtCore.Qt.AlignCenter)
-        self.lan_line_edit_1.setReadOnly(False)
+        self.lan_line_edit_1.setReadOnly(True)
         self.lan_line_edit_1.setObjectName("lan_line_edit_1")
         self.lan_line_edit_3 = QtWidgets.QLineEdit(self.centralwidget)
         self.lan_line_edit_3.setGeometry(QtCore.QRect(280, 120, 31, 21))
         self.lan_line_edit_3.setAlignment(QtCore.Qt.AlignCenter)
-        self.lan_line_edit_3.setReadOnly(False)
+        self.lan_line_edit_3.setReadOnly(True)
         self.lan_line_edit_3.setObjectName("lan_line_edit_3")
         self.dot4_label = QtWidgets.QLabel(self.centralwidget)
         self.dot4_label.setGeometry(QtCore.QRect(230, 120, 16, 17))
@@ -142,7 +145,7 @@ class ReceiverGUI(QWidget):
         self.lan_line_edit_4 = QtWidgets.QLineEdit(self.centralwidget)
         self.lan_line_edit_4.setGeometry(QtCore.QRect(320, 120, 31, 21))
         self.lan_line_edit_4.setAlignment(QtCore.Qt.AlignCenter)
-        self.lan_line_edit_4.setReadOnly(False)
+        self.lan_line_edit_4.setReadOnly(True)
         self.lan_line_edit_4.setObjectName("lan_line_edit_4")
         self.port_label = QtWidgets.QLabel(self.centralwidget)
         self.port_label.setGeometry(QtCore.QRect(30, 150, 67, 31))
@@ -187,15 +190,20 @@ class ReceiverGUI(QWidget):
         self.loopback_line_edit_3.setText(_translate("ReceiverWindow", "0"))
         self.loopback_line_edit_4.setText(_translate("ReceiverWindow", "1"))
 
-        self.lan_line_edit_1.setText(_translate("ReceiverWindow", "192"))
-        self.lan_line_edit_2.setText(_translate("ReceiverWindow", "168"))
-        self.lan_line_edit_3.setText(_translate("ReceiverWindow", "0"))       
-        self.lan_line_edit_4.setText(_translate("ReceiverWindow", "0"))
 
-        self.lan_line_edit_1.setValidator(QIntValidator(0, 255))
-        self.lan_line_edit_2.setValidator(QIntValidator(0, 255))
-        self.lan_line_edit_3.setValidator(QIntValidator(0, 255))
-        self.lan_line_edit_4.setValidator(QIntValidator(0, 255))
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(('10.255.255.255', 1))
+            IP_arr = s.getsockname()[0].split('.')
+        except:
+            IP_arr = '127.0.0.1'.split('.')
+        finally:
+            s.close() 
+
+        self.lan_line_edit_1.setText(_translate("ReceiverWindow", IP_arr[0]))
+        self.lan_line_edit_2.setText(_translate("ReceiverWindow", IP_arr[1]))
+        self.lan_line_edit_3.setText(_translate("ReceiverWindow", IP_arr[2]))       
+        self.lan_line_edit_4.setText(_translate("ReceiverWindow", IP_arr[3]))
 
         self.port_label.setText(_translate("ReceiverWindow", "Port:"))
         self.port_line_edit.setText(_translate("ReceiverWindow", "1234"))
@@ -271,6 +279,7 @@ class ReceiverGUI(QWidget):
         if self.start_stop_button.isChecked() == True:
 
             if data_is_valid:
+                self.log_plain_text.clear()
                 self.receiver.set_ip_address(self.ip_address)
                 self.receiver.set_port(self.port)
                 self.receiver.set_probability(self.probability)
@@ -295,10 +304,12 @@ class ReceiverGUI(QWidget):
         data_packet.set_packet_number(0xFFFFFF)
         
         try:
-            self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
+            if self.receiver.is_socket_open() == True:
+                self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
         except PermissionError as pe:
-            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu aveti permisiunea de trimite pachete la adresa la care este facuta bind.")
-            self.receiver.close_connection()
+            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu aveti permisiunea de a trimite pachete la adresa la care ati facut bind.")
+        except OSError as os:
+            self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu puteti timite pachete cu socket-ul inchis.")
 
         self.receiver.close_connection()
         self.start_stop_button.setText("Start Receiver")
@@ -309,7 +320,6 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     receiver_window = ReceiverGUI()
     
-
     #ui = ReceiverGUI()
     #ui.setupUi(ReceiverWindow)
     receiver_window.show()
