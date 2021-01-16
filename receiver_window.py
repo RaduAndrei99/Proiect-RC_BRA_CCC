@@ -266,7 +266,7 @@ class ReceiverGUI(QWidget):
         return True
 
     def write_in_log(self, message):
-        self.log_plain_text.appendPlainText(message)
+        self.log_plain_text.appendPlainText("[" + str(datetime.now().time()) + "] " + message)
 
     def receiver_finished(self):
         self.start_stop_button.setChecked(False)
@@ -311,8 +311,7 @@ class ReceiverGUI(QWidget):
         except OSError as os:
             self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu puteti timite pachete cu socket-ul inchis.")
 
-        self.receiver.close_connection()
-        self.start_stop_button.setText("Start Receiver")
+        #self.start_stop_button.setText("Start Receiver")
 
 
 if __name__ == "__main__":

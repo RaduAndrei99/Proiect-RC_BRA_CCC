@@ -98,11 +98,11 @@ class Receiver(QObject):
 			self.__s.bind((self.__receiver_ip, self.__receiver_port))
 			self.__is_socket_open = True
 		except OSError as os:
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu se poate face bind pe adresa precizata. Adresa indisponibila.")
+			self.log_signal.emit("Nu se poate face bind pe adresa precizata. Adresa indisponibila.")
 			self.__error_occurred = True
 			return
 
-		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
+		self.log_signal.emit("S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
 	def reset_receiver(self):
 		self.DATA_PACKET_SIZE = self.INIT_PACKET_SIZE
@@ -125,8 +125,8 @@ class Receiver(QObject):
 
 		name = "new_"
 
-		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
-		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta pachete...")
+		self.log_signal.emit("Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
+		self.log_signal.emit("Se asteapta pachete...")
 
 		while self.__is_running:
 
@@ -137,7 +137,7 @@ class Receiver(QObject):
 			########################### Testare a conexiunie ###############################
 
 			if int.from_bytes(data_readed[:self.PACKET_HEADER_SIZE - self.PACKET_COUNTER_SIZE], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
-				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de testare a conexiunii de la adresa: " + str(address))
+				self.log_signal.emit("Am primit mesaj de testare a conexiunii de la adresa: " + str(address))
 				self.__s.sendto(data_readed, address)
 				continue
 
@@ -147,21 +147,16 @@ class Receiver(QObject):
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
 			if is_packet_lost(self.__losing_packets_probability) or (self.__last_packet_received == -1 and nr_packet != self.FIRST_PACKET and nr_packet != 0xFFFFFF): # Verificam daca vom pierde intentionat acest pachet
-				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
+				self.log_signal.emit("Am aruncat pachetul cu numarul: " + str(nr_packet))
 				self.__nr_of_packets_lost += 1
 				continue
 
 			########################### Trimitere ACK ###############################
 
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul cu numarul: " + str(nr_packet))
+			self.log_signal.emit("Am primit pachetul cu numarul: " + str(nr_packet))
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 
-			try:
-				self.__s.sendto(ack_packet.get_header(), address)
-			except OSError as os:
-				if nr_packet != 0xFFFFFF:
-					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu puteti trimite packet de ACK cu socket-ul inchis.")
-					return
+			self.__s.sendto(ack_packet.get_header(), address)
 
 			########################### Mecanism sliding window ###############################
 
@@ -171,7 +166,7 @@ class Receiver(QObject):
 					if self.__file_writer.is_open() == True:
 						self.__file_writer.write_in_file(data)
 					else:
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a incercat scrierea intr-un fisier inchis.")
+						self.log_signal.emit("S-a incercat scrierea intr-un fisier inchis.")
 
 				elif type == PacketType.INIT:
 					if nr_packet == self.FIRST_PACKET:
@@ -184,17 +179,17 @@ class Receiver(QObject):
 						self.DATA_PACKET_SIZE = int.from_bytes(self.__ups.get_byte_x_to_y(4, 5, data), "big")
 						self.DATA_SIZE = self.DATA_PACKET_SIZE - self.PACKET_HEADER_SIZE
 						data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete a cate " + str(self.DATA_PACKET_SIZE) + " octeti fiecare.")
+						self.log_signal.emit("Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete a cate " + str(self.DATA_PACKET_SIZE) + " octeti fiecare.")
 						self.__ups.set_packet_size(self.DATA_PACKET_SIZE)
 
 						name += self.__ups.get_byte_x_to_y(6, self.DATA_SIZE, data).decode("ascii")
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am deschis fisierul cu numele: " + name)
+						self.log_signal.emit("Am deschis fisierul cu numele: " + name)
 
 				else:
 					self.__last_packet_received += 1
-					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(self.__last_packet_received))
+					self.log_signal.emit("Ultimul pachet a fost: " + str(self.__last_packet_received))
 					self.loading_bar_signal.emit(nr_packet + 1)
 					break
 		
@@ -209,11 +204,11 @@ class Receiver(QObject):
 						if self.__file_writer.is_open() == True:
 							self.__file_writer.write_in_file(data)
 						else:
-							self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a incercat scrierea intr-un fisier inchis.")
+							self.log_signal.emit("S-a incercat scrierea intr-un fisier inchis.")
 					else:
 						self.__last_packet_received += 1
 						self.__is_running = False
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(self.__last_packet_received))
+						self.log_signal.emit("Ultimul pachet a fost: " + str(self.__last_packet_received))
 						break
 
 					self.__last_packet_received += 1
@@ -225,18 +220,37 @@ class Receiver(QObject):
 
 			###################################################
 
-		if self.__file_writer.is_open():
-			self.__file_writer.close_file()
-
 		if self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:
 			end = time.time()
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Done!")
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Timp de executie: " + str(end - start))
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Procentul de pachete pierdute este: " + str(100 * float("{:.4f}".format(float(self.__nr_of_packets_lost/self.__nr_of_packets_recv), 2))) + "%")
-		else:
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Program inchis de utilizator.")
+			self.log_signal.emit("Done!")
+			self.log_signal.emit("Timp de executie: " + str(end - start))
+			self.log_signal.emit("Procentul de pachete pierdute este: " + str(100 * float("{:.4f}".format(float(self.__nr_of_packets_lost/self.__nr_of_packets_recv), 2))) + "%")
 
-		self.finish_signal.emit()
+		else:
+			self.log_signal.emit("Program inchis de utilizator.")
+
+		if self.__file_writer.is_open():			# Inchidem fisier
+			self.__file_writer.close_file()
+			self.log_signal.emit("Fisierul s-a inchis.")
+
+		if self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trmitem ACK-uri pierdute
+			
+			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
+
+			data_packet.create_packet(data_readed)
+			type, nr_packet, data = self.__ups.unpack(data_packet)
+
+			if nr_packet == 0xFFFFFF:
+				self.log_signal.emit("Program inchis de utilizator.")
+			else:
+				self.log_signal.emit("Am primit ACK pentru pachetul cu numarul: " + str(nr_packet))
+				ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
+
+				self.__s.sendto(ack_packet.get_header(), address)
+
+		self.close_connection()
+
+		self.finish_signal.emit()				# Resetam buton
 		self.reset_receiver()
 
 	def set_ip_address(self, ip_address):
@@ -261,13 +275,13 @@ class Receiver(QObject):
 		return self.__s
 
 	def close_connection(self):
-		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Socket-ul s-a inchis.")
+		self.log_signal.emit("Socket-ul s-a inchis.")
 		self.__is_socket_open = False
 
 		try:
 			self.__s.close()
 		except AttributeError as ae:
-			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu se poate inchide un socket ne declarat.")
+			self.log_signal.emit("Nu se poate inchide un socket ne declarat.")
 
 	def is_socket_open(self):
 		return self.__is_socket_open
