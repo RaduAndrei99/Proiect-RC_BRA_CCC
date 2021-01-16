@@ -5,13 +5,15 @@ from packet import SWPacket, PacketType
 	Clasa folosita pentru a impacheta datele dintr-un fisier
 """
 class PackingSystem:
+	DEFAULT_PACKET_DATA_SIZE = 4096
+	PACKET_HEADER_SIZE = 4
 	def __init__(self):
-		self.__packet_size_in_bytes = 5000
-		self.__data_size_in_bytes = 4096
+		self.__data_size_in_bytes = PackingSystem.DEFAULT_PACKET_DATA_SIZE
+		self.__packet_size_in_bytes = PackingSystem.DEFAULT_PACKET_DATA_SIZE + PackingSystem.PACKET_HEADER_SIZE
 
 		self.__packet_number = 1
 
-		self.__header_size_in_bytes = 4
+		self.__header_size_in_bytes = PackingSystem.PACKET_HEADER_SIZE
 
 	def pack_data(self):
 		new_packet = SWPacket(self.__packet_size_in_bytes, self.__data_size_in_bytes, self.__header_size_in_bytes, packet_type=PacketType.DATA)
@@ -46,6 +48,10 @@ class PackingSystem:
 
 	def reset(self):
 		self.__packet_number = 1
+	
+	def set_data_size(self, new_size):
+		self.__data_size_in_bytes = new_size
+		self.__packet_size_in_bytes = new_size + PackingSystem.PACKET_HEADER_SIZE
 
 
 

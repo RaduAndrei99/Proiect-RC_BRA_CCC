@@ -53,7 +53,7 @@ class SWPacket:
 		if self.__byte_array[0] == PacketType.DATA:
 			self.__byte_array[4:self.__package_size] = data_array_in_bytes
 		elif self.__byte_array[0] == PacketType.INIT:
-			self.__byte_array[7:self.__package_size] = data_array_in_bytes
+			self.__byte_array[9:self.__package_size] = data_array_in_bytes
 		else:
 			raise "Cannot set data bytes for a package of type " + str(self.__byte_array[0])
 
@@ -72,7 +72,16 @@ class SWPacket:
 	
 	def set_packets_to_send(self, no_of_packets):
 		if self.__byte_array[0] == PacketType.INIT:
-			self.__byte_array[4:7] = no_of_packets
+			self.__byte_array[4:7] = no_of_packets.to_bytes(3, byteorder="big")
+		else:
+			raise "Cannot define the number of packets field for type " + str(self.__byte_array[0])
+
+	def set_packet_size(self, pk_size):
+		if self.__byte_array[0] == PacketType.INIT:
+			self.__byte_array[7:9] = pk_size.to_bytes(2, byteorder="big")
+		else:
+			raise "Cannot define the packet size field for type " + str(self.__byte_array[0])
+
 
 if __name__ == '__main__':
 	packet = SWPacket(36,4,4,packet_type=PacketType.ACK)
