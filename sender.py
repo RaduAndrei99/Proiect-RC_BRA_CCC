@@ -111,17 +111,19 @@ class Sender(QObject):
 		self.__recent_packets_sent.clear()
 		self.__recent_ACK_received.clear()
 
-		thread_1 = threading.Thread(target=self.wait_for_ACK)
-		thread_2 = threading.Thread(target=self.send_packages_to_buffer)
-		thread_3 = threading.Thread(target=self.send_files_with_SW)
+		#thread_1 = threading.Thread(target=self.wait_for_ACK)
+		#thread_2 = threading.Thread(target=self.send_packages_to_buffer)
+		#thread_3 = threading.Thread(target=self.send_files_with_SW)
 
-		thread_1.start()
-		thread_2.start()
-		thread_3.start()
+		self.send_packages_to_buffer()
+		
+		#thread_1.start()
+		#thread_2.start()
+		#thread_3.start()
 
-		thread_1.join()
-		thread_2.join()
-		thread_3.join()
+		#thread_1.join()
+		#thread_2.join()
+		#thread_3.join()
 
 		self.file_sent_signal.emit(True)
 
@@ -192,55 +194,73 @@ class Sender(QObject):
 		self.__ps.reset()
 		self.__ps.open_file(self.__path) 
 
-		first_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.INIT)
+		if self.__ps.get_file_size() < (2**24 - 2)*self.__packet_size:
 
-		file_name = self.__path.split("/")[-1]
+			first_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.INIT)
 
-		if len(file_name) > self.__MAX_FILE_NAME_SIZE:
-			file_name = file_name[0:self.__MAX_FILE_NAME_SIZE-len(file_name.split(".")[-1])-1] + "."  + file_name.split(".")[-1]
-			print(file_name)
+			file_name = self.__path.split("/")[-1]
 
-		first_packet.store_data(bytes(file_name, 'utf-8'))
-		first_packet.make_first_packet()
+			if len(file_name) > self.__MAX_FILE_NAME_SIZE:
+				file_name = file_name[0:self.__MAX_FILE_NAME_SIZE-len(file_name.split(".")[-1])-1] + "."  + file_name.split(".")[-1]
+				print(file_name)
 
-		packets_to_send = 0
+			first_packet.store_data(bytes(file_name, 'utf-8'))
+			first_packet.make_first_packet()
 
-		if self.__ps.get_file_size() % self.__ps.get_data_size_in_bytes() != 0:
-			packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3
-		else:
-			packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
+			packets_to_send = 0
 
-		first_packet.set_packets_to_send(packets_to_send.to_bytes(3, byteorder="big"))
-
-		count += 1
-
-		self.__buffer.put(first_packet)
-
-		for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
-			if self.__sender_run_flag == True:
-				self.__condition.acquire()
-				if self.__buffer.qsize() == self.__QUEUE_SIZE:
-					self.__condition.wait()
-				count+=1
-				self.__buffer.put(self.__ps.pack_data())
-				self.__condition.notify()
-				self.__condition.release()
+			if self.__ps.get_file_size() % self.__ps.get_data_size_in_bytes() != 0:
+				packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3
 			else:
-				self.log_message_signal.emit("S-a terminat thread-ul care pune pachete in buffer mai devreme din cauza unei erori.")
-				return
+				packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
+
+			first_packet.set_packets_to_send(packets_to_send)
+
+			count += 1
+
+			first_packet.set_packet_size(self.__packet_size)
+
+			self.__buffer.put(first_packet)
 
 
-		self.__buffer.put(self.__ps.get_end_file_packet())
+			thread_1 = threading.Thread(target=self.wait_for_ACK)
+			thread_2 = threading.Thread(target=self.send_files_with_SW)
+			thread_1.start()
+			thread_2.start()
 
-		count += 1
+			print(binascii.hexlify(first_packet.get_data()))
+			for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
+				if self.__sender_run_flag == True:
+					self.__condition.acquire()
+					if self.__buffer.qsize() == self.__QUEUE_SIZE:
+						self.__condition.wait()
+					count+=1
+					self.__buffer.put(self.__ps.pack_data())
+					self.__condition.notify()
+					self.__condition.release()
+				else:
+					self.log_message_signal.emit("S-a terminat thread-ul care pune pachete in buffer mai devreme din cauza unei erori.")
+					return
 
-		self.log_message_signal.emit("Numarul teoretic de pachete generate: " + str(int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3))
-		self.log_message_signal.emit("Numarul de pachete puse in buffer este: " + str(count))
 
-		self.__packages_sent_to_buffer = count
+			self.__buffer.put(self.__ps.get_end_file_packet())
 
-		self.__ps.close_file()
-		self.log_message_signal.emit("S-a terminat thread-ul care pune pachete un buffer.")
+			count += 1
+
+			self.log_message_signal.emit("Numarul teoretic de pachete generate: " + str(int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3))
+			self.log_message_signal.emit("Numarul de pachete puse in buffer este: " + str(count))
+
+			self.__packages_sent_to_buffer = count
+
+			self.__ps.close_file()
+			self.log_message_signal.emit("S-a terminat thread-ul care pune pachete un buffer.")
+
+			thread_1.join()
+			thread_2.join()
+		else:
+			self.log_message_signal.emit("Fisierul este prea mare pentru a putea fi trimis!")
+			self.log_message_signal.emit("Va rugam mariti dimensiunea campului de date din pachet daca se poate.")
+
 
 	def packet_timeout(self, packet_number, resend_value):
 		if resend_value < self.__resend_val:

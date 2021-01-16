@@ -216,7 +216,7 @@ class Ui_MainWindow(QWidget):
         self.packet_slider.valueChanged.connect(self.on_packet_slider)
         self.packet_slider.setSingleStep(64)
         self.packet_slider.setTickInterval(10)
-        self.packet_slider.setRange(64,65535)
+        self.packet_slider.setRange(64,2**16 - 1 - 4  )
         self.packet_slider.setPageStep(64)
 
         self.set_timeout_button.clicked.connect(self.setTimeout)

@@ -13,7 +13,6 @@ class FileReader:
 	def open(self):
 		self.__file=open(self.__filename, 'rb')
 		self.__size_in_bytes = Path(self.__filename).stat().st_size
-		#print("Dimensiune citita: " + str(self.__size_in_bytes))
 
 	def close(self):
 		self.__file.close()
