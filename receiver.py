@@ -130,7 +130,13 @@ class Receiver(QObject):
 
 		while self.__is_running:
 
-			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
+			try:
+				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
+			except OSError as os:
+				if "[WinError 10040]" in str(os)
+				self.log_signal.emit("[WinError 10040] S-a primit un pachet mai mare decat dimensiunea buffer-ul de receptie.")
+				self.log_signal.emit("Se asteapta pachete...")
+				continue
 
 			self.__nr_of_packets_recv += 1
 
