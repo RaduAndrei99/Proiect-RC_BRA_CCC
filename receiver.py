@@ -55,13 +55,14 @@ class Receiver(QObject):
 	set_total_nr_of_packets_signal = pyqtSignal(int)
 	loading_bar_signal = pyqtSignal(int)
 
-	DATA_PACKET_SIZE = 4100
+	INIT_PACKET_SIZE = 64
+	DATA_PACKET_SIZE = INIT_PACKET_SIZE
 	CHECK_PACKET_SIZE = 4
 	ACK_PACKET_SIZE = 4
 
 	PACKET_TYPE_SIZE = 1
 	PACKET_COUNTER_SIZE = 3
-	DATA_SIZE = 4096
+	DATA_SIZE = DATA_PACKET_SIZE - PACKET_COUNTER_SIZE - PACKET_TYPE_SIZE
 	PACKET_HEADER_SIZE = PACKET_TYPE_SIZE + PACKET_COUNTER_SIZE
 
 	FIRST_PACKET = 0
@@ -104,6 +105,8 @@ class Receiver(QObject):
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
 	def reset_receiver(self):
+		self.DATA_PACKET_SIZE = self.INIT_PACKET_SIZE
+		self.DATA_SIZE = -1
 		self.__is_running = True
 		self.__SWR.clear()
 		self.__last_packet_received = -1
@@ -117,35 +120,42 @@ class Receiver(QObject):
 			self.__error_occurred = False
 			return
 
-		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+		data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.INIT)
 		ack_packet = SWPacket(self.ACK_PACKET_SIZE, 0, self.PACKET_HEADER_SIZE, packet_type=PacketType.ACK)
 
 		name = "new_"
 
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta pachete...")
+		start = time.time()
 		while self.__is_running:
 
-			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
+			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
 
 			self.__nr_of_packets_recv += 1
+
+			########################### Testare a conexiunie ###############################
 
 			if int.from_bytes(data_readed[:self.PACKET_HEADER_SIZE - self.PACKET_COUNTER_SIZE], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
 				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit mesaj de testare a conexiunii de la adresa: " + str(address))
 				self.__s.sendto(data_readed, address)
 				continue
 
+			########################### Aruncare pachete ###############################
+
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
-			if is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet
+			if is_packet_lost(self.__losing_packets_probability) or (self.__last_packet_received == -1 and nr_packet != self.FIRST_PACKET): # Verificam daca vom pierde intentionat acest pachet
 				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
 				self.__nr_of_packets_lost += 1
 				continue
 
+			########################### Trimitere ACK ###############################
+
 			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am primit pachetul cu numarul: " + str(nr_packet))
 			ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
-			
+
 			try:
 				self.__s.sendto(ack_packet.get_header(), address)
 			except OSError as os:
@@ -153,28 +163,28 @@ class Receiver(QObject):
 					self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu puteti trimite packet de ACK cu socket-ul inchis.")
 					return
 
-			################################################
+			########################### Mecanism sliding window ###############################
 
-			if nr_packet == self.__last_packet_received + 1: # Mecanism sliding window
+			if nr_packet == self.__last_packet_received + 1:
 				
 				if type == PacketType.DATA:
-					if self.__file_writer.is_open() == False:
-						self.__file_writer.set_file_name(name)
-						self.__file_writer.open_file()
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am deschis fisierul cu numele: " + name)
-						self.__file_writer.write_in_file(data)
-					else:
 						self.__file_writer.write_in_file(data)
 
 				elif type == PacketType.INIT:
 					if nr_packet == self.FIRST_PACKET:
-						self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Numarul total de pachete de primit este: " + str(self.__total_nr_of_packets_to_receive))
+						
+						self.__total_nr_of_packets_to_receive = int.from_bytes(self.__ups.get_byte_x_to_y(1, 3, data), "big")
 						self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
-						name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_COUNTER_SIZE, data).decode("ascii")
-						start = time.time()
-					else:
-						name += data.decode("ascii")
+						
+						self.DATA_PACKET_SIZE = int.from_bytes(self.__ups.get_byte_x_to_y(4, 5, data), "big")
+						self.DATA_SIZE = self.DATA_PACKET_SIZE - self.PACKET_HEADER_SIZE
+						data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete de cate " + str(self.DATA_PACKET_SIZE) + ".")
+						
+						name += self.__ups.get_byte_x_to_y(6, self.DATA_SIZE, data).decode("ascii")
+						self.__file_writer.set_file_name(name)
+						self.__file_writer.open_file()
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am deschis fisierul cu numele: " + name)
 
 				else:
 					self.__last_packet_received += 1
@@ -191,22 +201,7 @@ class Receiver(QObject):
 
 					if type == PacketType.DATA:
 						if self.__file_writer.is_open() == False:
-							self.__file_writer.set_file_name(name)
-							self.__file_writer.open_file()
-							self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am deschis fisierul cu numele: " + name)
 							self.__file_writer.write_in_file(data)
-						else:
-							self.__file_writer.write_in_file(data)
-							
-					elif type == PacketType.INIT:
-						if nr_packet == FIRST_PACKET:
-							self.__total_nr_of_packets_to_receive = self.__ups.get_first_n_bytes_from_data_to_int(self.PACKET_COUNTER_SIZE, data)
-							self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Numarul total de pachete de primit este: " + str(self.__total_nr_of_packets_to_receive))
-							self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
-							name += self.__ups.get_last_n_bytes_from_data(self.DATA_SIZE - self.PACKET_COUNTER_SIZE, data).decode("ascii")
-							start = time.time()
-						else:
-							name += data.decode("ascii")
 					else:
 						self.__last_packet_received += 1
 						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
