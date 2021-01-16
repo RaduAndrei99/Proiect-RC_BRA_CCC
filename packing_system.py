@@ -48,6 +48,10 @@ class PackingSystem:
 
 	def reset(self):
 		self.__packet_number = 1
+	
+	def set_data_size(self, new_size):
+		self.__data_size_in_bytes = new_size
+		self.__packet_size_in_bytes = new_size + PackingSystem.PACKET_HEADER_SIZE
 
 
 

@@ -377,6 +377,7 @@ class Sender(QObject):
 	def set_packet_data_size(self, new_size):
 		self.__packet_data_size = new_size
 		self.__packet_size = new_size + Sender.DEFAULT_PACKET_HEADER_SIZE
+		self.__ps.set_data_size(new_size)
 
 	def set_local_ip_address(self):
 		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
