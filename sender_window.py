@@ -327,6 +327,8 @@ class Ui_MainWindow(QWidget):
         self.__sender.set_receiver_ip(ip1 + "." + ip2 + "." + ip3 + "." + ip4)
         if(ip1 + "." + ip2 + "." + ip3 + "." + ip4 != Sender.DEFAULT_RECEIVER_IP):
             self.__sender.set_local_ip_address()
+        else:
+            self.__sender.set_loopback_ip_address()
         self.write_in_log("S-a setat IP-ul cu adresa "  + ip1 + "." + ip2 + "." + ip3 + "." + ip4)
 
 
@@ -346,21 +348,17 @@ class Ui_MainWindow(QWidget):
 
             if self.get_ip_from_text_field() != "127.0.0.1":
                 self.__sender.set_local_ip_address()
-         
+            else:
+                self.__sender.set_loopback_ip_address()
 
-            if self.__socket_created == False:
-                self.__sender.create_socket("AF_INET", "SOCK_DGRAM")
-                self.__socket_created == True
+
+            self.__sender.create_socket("AF_INET", "SOCK_DGRAM")
+
                 
             thread_sender = threading.Thread(target=self.__sender.start_sender)
             thread_sender.start()
 
-            self.window_slider.setEnabled(False)
-            self.set_IP_button.setEnabled(False)
-            self.set_port_button.setEnabled(False)
-            self.set_timeout_button.setEnabled(False)
-            self.start_sender_button.setEnabled(False)
-
+            self.disable_components()
 
         except Exception as e:
             QMessageBox.about(self, "Eroare!", "Eroare la pornirea sender-ului!" )  
@@ -370,6 +368,17 @@ class Ui_MainWindow(QWidget):
     def write_in_log(self, message):
         self.log_text_edit.append("[" + str(datetime.now().time()) + "]" + " " + message)
     
+    def disable_components(self):
+        self.window_slider.setEnabled(False)
+        self.set_IP_button.setEnabled(False)
+        self.set_port_button.setEnabled(False)
+        self.set_timeout_button.setEnabled(False)
+        self.start_sender_button.setEnabled(False)          
+        self.packet_slider.setEnabled(False)
+        self.test_connection_button.setEnabled(False)
+        self.file_select_button.setEnabled(False)
+
+
     def enable_components(self, file_sent):
         if file_sent == True:
             self.window_slider.setEnabled(True)
@@ -377,6 +386,9 @@ class Ui_MainWindow(QWidget):
             self.set_port_button.setEnabled(True)
             self.set_timeout_button.setEnabled(True)
             self.start_sender_button.setEnabled(True)
+            self.packet_slider.setEnabled(True)
+            self.test_connection_button.setEnabled(True)
+            self.file_select_button.setEnabled(True)
 
     def check_connection_pressed(self):
         self.__sender.check_connection()
@@ -389,5 +401,3 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
-
-

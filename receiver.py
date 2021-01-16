@@ -152,9 +152,14 @@ class Receiver(QObject):
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
+<<<<<<< HEAD
 			if is_packet_lost(self.__losing_packets_probability) or (self.__last_packet_received == -1 and nr_packet != self.FIRST_PACKET and nr_packet != 0xFFFFFF): # Verificam daca vom pierde intentionat acest pachet
 				self.log_signal.emit("Am aruncat pachetul cu numarul: " + str(nr_packet))
+=======
+			if  (self.__last_packet_received == -1 and nr_packet != self.FIRST_PACKET and nr_packet != 0xFFFFFF) or is_packet_lost(self.__losing_packets_probability): # Verificam daca vom pierde intentionat acest pachet				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
+>>>>>>> db0878704272aea8503388af10180cb1943fb249
 				self.__nr_of_packets_lost += 1
+				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
 				continue
 
 			########################### Trimitere ACK ###############################
