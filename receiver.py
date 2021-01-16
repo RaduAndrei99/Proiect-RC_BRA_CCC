@@ -134,9 +134,9 @@ class Receiver(QObject):
 				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
 			except OSError as os:
 				if "[WinError 10040]" in str(os):
-					self.log_signal.emit("[WinError 10040] S-a primit un pachet mai mare decat dimensiunea buffer-ul de receptie.")
+					self.log_signal.emit("[WinError 10040] S-a primit un pachet mai mare decat dimensiunea buffer-ului de receptie.")
 					self.log_signal.emit("Se asteapta pachete...")
-				continue
+					continue
 
 			self.__nr_of_packets_recv += 1
 
@@ -155,7 +155,6 @@ class Receiver(QObject):
 			if is_packet_lost(self.__losing_packets_probability) or (self.__last_packet_received == -1 and nr_packet != self.FIRST_PACKET and nr_packet != 0xFFFFFF): # Verificam daca vom pierde intentionat acest pachet
 				self.log_signal.emit("Am aruncat pachetul cu numarul: " + str(nr_packet))
 				self.__nr_of_packets_lost += 1
-				self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Am aruncat pachetul cu numarul: " + str(nr_packet))
 				continue
 
 			########################### Trimitere ACK ###############################
@@ -185,11 +184,14 @@ class Receiver(QObject):
 						
 						self.DATA_PACKET_SIZE = int.from_bytes(self.__ups.get_byte_x_to_y(4, 5, data), "big")
 						self.DATA_SIZE = self.DATA_PACKET_SIZE - self.PACKET_HEADER_SIZE
+						
 						data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
+						
 						self.log_signal.emit("Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete a cate " + str(self.DATA_PACKET_SIZE) + " octeti fiecare.")
 						self.__ups.set_packet_size(self.DATA_PACKET_SIZE)
 
 						name += self.__ups.get_byte_x_to_y(6, self.DATA_SIZE, data).decode("ascii")
+						
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
 						self.log_signal.emit("Am deschis fisierul cu numele: " + name)
@@ -240,7 +242,7 @@ class Receiver(QObject):
 			self.__file_writer.close_file()
 			self.log_signal.emit("Fisierul s-a inchis.")
 
-		if self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trmitem ACK-uri pierdute
+		while self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trmitem ACK-uri pierdute
 			
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 
@@ -248,7 +250,8 @@ class Receiver(QObject):
 			type, nr_packet, data = self.__ups.unpack(data_packet)
 
 			if nr_packet == 0xFFFFFF:
-				self.log_signal.emit("Program inchis de utilizator.")
+				self.log_signal.emit("Program finalizat cu succes.")
+				break
 			else:
 				self.log_signal.emit("Am primit ACK pentru pachetul cu numarul: " + str(nr_packet))
 				ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
