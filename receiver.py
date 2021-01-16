@@ -127,7 +127,7 @@ class Receiver(QObject):
 
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se asteapta pachete...")
-		start = time.time()
+
 		while self.__is_running:
 
 			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
@@ -168,19 +168,25 @@ class Receiver(QObject):
 			if nr_packet == self.__last_packet_received + 1:
 				
 				if type == PacketType.DATA:
+					if self.__file_writer.is_open() == True:
 						self.__file_writer.write_in_file(data)
+					else:
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a incercat scrierea intr-un fisier inchis.")
 
 				elif type == PacketType.INIT:
 					if nr_packet == self.FIRST_PACKET:
 						
+						start = time.time()
+
 						self.__total_nr_of_packets_to_receive = int.from_bytes(self.__ups.get_byte_x_to_y(1, 3, data), "big")
 						self.set_total_nr_of_packets_signal.emit(self.__total_nr_of_packets_to_receive)
 						
 						self.DATA_PACKET_SIZE = int.from_bytes(self.__ups.get_byte_x_to_y(4, 5, data), "big")
 						self.DATA_SIZE = self.DATA_PACKET_SIZE - self.PACKET_HEADER_SIZE
 						data_packet = SWPacket(self.DATA_PACKET_SIZE, self.DATA_SIZE, self.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
-						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete de cate " + str(self.DATA_PACKET_SIZE) + ".")
-						
+						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete a cate " + str(self.DATA_PACKET_SIZE) + " octeti fiecare.")
+						self.__ups.set_packet_size(self.DATA_PACKET_SIZE)
+
 						name += self.__ups.get_byte_x_to_y(6, self.DATA_SIZE, data).decode("ascii")
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
@@ -200,8 +206,10 @@ class Receiver(QObject):
 					self.__SWR.pop(self.__last_packet_received + 1)
 
 					if type == PacketType.DATA:
-						if self.__file_writer.is_open() == False:
+						if self.__file_writer.is_open() == True:
 							self.__file_writer.write_in_file(data)
+						else:
+							self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "S-a incercat scrierea intr-un fisier inchis.")
 					else:
 						self.__last_packet_received += 1
 						self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Ultimul pachet a fost: " + str(nr_packet))
@@ -254,7 +262,11 @@ class Receiver(QObject):
 	def close_connection(self):
 		self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Socket-ul s-a inchis.")
 		self.__is_socket_open = False
-		self.__s.close()
+
+		try:
+			self.__s.close()
+		except AttributeError as ae:
+			self.log_signal.emit("[" + str(datetime.now().time()) + "] " + "Nu se poate inchide un socket ne declarat.")
 
 	def is_socket_open(self):
 		return self.__is_socket_open
