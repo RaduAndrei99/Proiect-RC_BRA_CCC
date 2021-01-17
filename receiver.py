@@ -128,7 +128,7 @@ class Receiver(QObject):
 		name = "new_"
 
 		self.log_signal.emit("Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
-		self.log_signal.emit("Se asteapta pachete in continuare...")
+		self.log_signal.emit("Se asteapta pachete...")
 
 		while self.__is_running:
 
@@ -141,7 +141,7 @@ class Receiver(QObject):
 			except OSError as os:
 				if "[WinError 10040]" in str(os):
 					self.log_signal.emit("[WinError 10040] S-a primit un pachet mai mare decat dimensiunea buffer-ului de receptie.")
-					self.log_signal.emit("Se asteapta pachete...")
+					self.log_signal.emit("Se asteapta pachete in continuare...")
 					continue
 
 			try:
