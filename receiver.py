@@ -167,7 +167,7 @@ class Receiver(QObject):
 			########################### Mecanism sliding window ###############################
 
 			if nr_packet == self.__last_packet_received + 1:
-				
+
 				if type == PacketType.DATA:
 					if self.__file_writer.is_open() == True:
 						self.__file_writer.write_in_file(data)
@@ -223,6 +223,10 @@ class Receiver(QObject):
 					self.__last_packet_received += 1
 
 			elif nr_packet > self.__last_packet_received + 1:
+				if nr_packet == 0xFFFFFF:
+					self.__is_running = False
+					continue
+
 				self.__SWR[nr_packet] = (type, data)
 
 			self.loading_bar_signal.emit(self.__last_packet_received + 1) # Update loading bar

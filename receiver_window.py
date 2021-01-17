@@ -298,8 +298,7 @@ class ReceiverGUI(QWidget):
             self.forceCloseReceiver()
 
     def forceCloseReceiver(self):
-        self.receiver.set_is_running(False)
-            
+         
         data_packet = SWPacket(self.receiver.DATA_PACKET_SIZE, self.receiver.DATA_SIZE, self.receiver.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
         data_packet.make_end_packet()
         data_packet.set_packet_number(0xFFFFFF)
