@@ -95,7 +95,7 @@ class Sender(QObject):
 
 		self.__valid = False  #boolean folosit pentru a sincroniza terminarea functiilor de wait_for_ack si send_files_with_SW
 		
-		self.__sender_run_flag = True #flag-ul de run
+		self.__sender_run_flag = False #flag-ul de run
 
 		self.__path = "" #path-ul catre fisierul care urmeaza sa fie trimis
 
@@ -407,5 +407,20 @@ class Sender(QObject):
 
 	def set_loopback_ip_address(self):
 		self.__sender_ip = "127.0.0.1"
+	
+	def is_running(self):
+		return self.__sender_run_flag
+	
+	def close_sender(self):
+		if self.__sender_run_flag == True:
+			data_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.DATA)
+			data_packet.make_end_packet()
+			data_packet.set_packet_number(0xFFFFFF)
+
+			print(binascii.hexlify(data_packet.get_data()))
+			self.__s.sendto(data_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
+			self.__sender_run_flag = False
+
+		self.__s.close()
 
 from sender_window import Ui_MainWindow
