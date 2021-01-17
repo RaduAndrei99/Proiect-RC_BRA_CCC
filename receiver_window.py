@@ -297,6 +297,9 @@ class ReceiverGUI(QWidget):
         else:
             self.forceCloseReceiver()
 
+            if self.start_stop_button.text() == "Stop Receiver" and self.start_stop_button.isChecked() == False: # In caz de pierdere al ultimului pachet
+                self.start_stop_button.setChecked(True)
+
     def forceCloseReceiver(self):
          
         data_packet = SWPacket(self.receiver.DATA_PACKET_SIZE, self.receiver.DATA_SIZE, self.receiver.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)

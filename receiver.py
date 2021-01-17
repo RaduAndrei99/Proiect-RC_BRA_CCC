@@ -70,6 +70,8 @@ class Receiver(QObject):
 	def __init__(self):
 		super(Receiver, self).__init__()
 
+		socket.setdefaulttimeout(10)
+
 		self.__error_occurred = False
 		self.__is_socket_open = False
 
@@ -126,17 +128,28 @@ class Receiver(QObject):
 		name = "new_"
 
 		self.log_signal.emit("Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
-		self.log_signal.emit("Se asteapta pachete...")
+		self.log_signal.emit("Se asteapta pachete in continuare...")
 
 		while self.__is_running:
 
 			try:
-				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
+				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)	# Primire pachete
+			except socket.timeout:
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului s-a terminat.")
+				self.__is_running = False
+				continue
 			except OSError as os:
 				if "[WinError 10040]" in str(os):
 					self.log_signal.emit("[WinError 10040] S-a primit un pachet mai mare decat dimensiunea buffer-ului de receptie.")
 					self.log_signal.emit("Se asteapta pachete...")
 					continue
+
+			try:
+				data_readed
+			except UnboundLocalError as ul:
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului s-a terminat...")
+				self.__is_running = False
+				continue
 
 			self.__nr_of_packets_recv += 1
 
@@ -240,7 +253,7 @@ class Receiver(QObject):
 			self.log_signal.emit("Procentul de pachete pierdute este: " + str(100 * float("{:.4f}".format(float(self.__nr_of_packets_lost/self.__nr_of_packets_recv), 2))) + "%")
 
 		else:
-			self.log_signal.emit("Program inchis de utilizator.")
+			self.log_signal.emit("Program inchis de utilizator sau sender-ul s-a oprit.")
 
 		if self.__file_writer.is_open():			# Inchidem fisier
 			self.__file_writer.close_file()
@@ -248,7 +261,11 @@ class Receiver(QObject):
 
 		while self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trmitem ACK-uri pierdute
 			
-			data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
+			try:
+				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
+			except socket.timeout:
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului in partea de ACK s-a terminat.")
+				break
 
 			data_packet.create_packet(data_readed)
 			type, nr_packet, data = self.__ups.unpack(data_packet)
