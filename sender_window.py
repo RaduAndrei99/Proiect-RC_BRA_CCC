@@ -18,12 +18,17 @@ import socket
 
 class Ui_MainWindow(QWidget):
 
-    def setupUi(self, MainWindow):
+    def __init__(self):
+        super().__init__()
         self.__sender = Sender(Sender.DEFAULT_IP, Sender.DEFAULT_PORT)
+
+        self.setupUi(self)
+        
         self.__socket_created = False
         self.__sender.log_message_signal.connect(self.write_in_log)
         self.__sender.file_sent_signal.connect(self.enable_components)
 
+    def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(750, 560)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -195,14 +200,7 @@ class Ui_MainWindow(QWidget):
         self.packet_size_value_label.setFont(font)
         self.packet_size_value_label.setText("")
         self.packet_size_value_label.setObjectName("packet_size_value_label")
-        MainWindow.setCentralWidget(self.centralwidget)
-        self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 750, 26))
-        self.menubar.setObjectName("menubar")
-        MainWindow.setMenuBar(self.menubar)
-        self.statusbar = QtWidgets.QStatusBar(MainWindow)
-        self.statusbar.setObjectName("statusbar")
-        MainWindow.setStatusBar(self.statusbar)
+        #MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -355,8 +353,8 @@ class Ui_MainWindow(QWidget):
             self.__sender.create_socket("AF_INET", "SOCK_DGRAM")
 
                 
-            thread_sender = threading.Thread(target=self.__sender.start_sender)
-            thread_sender.start()
+            self.__thread_sender = threading.Thread(target=self.__sender.start_sender)
+            self.__thread_sender.start()
 
             self.disable_components()
 
@@ -392,12 +390,32 @@ class Ui_MainWindow(QWidget):
 
     def check_connection_pressed(self):
         self.__sender.check_connection()
-        
+    
+    def close_sender(self):
+        if self.__sender.is_running():
+            self.__sender.close_sender()
+            self.__thread_sender.join()
+
+    def closeEvent(self,event):
+        msgBox = QMessageBox()
+        msgBox.setStyleSheet("QLabel{min-width: 250px;}");
+        msgBox.setWindowTitle("Confirmati iesirea...")
+        msgBox.setInformativeText("Sunteti sigur ca doriti sa iesiti?\n")
+        msgBox.addButton(QtWidgets.QPushButton('Nu'), QMessageBox.NoRole)
+        msgBox.addButton(QtWidgets.QPushButton('Da'), QMessageBox.YesRole)
+        ret_val = msgBox.exec_()
+
+        if ret_val == 1:
+            event.accept()
+            self.close_sender()
+        else:
+            event.ignore()
+
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow()
-    ui.setupUi(MainWindow)
-    MainWindow.show()
+    sender_window = Ui_MainWindow()
+    #ui = Ui_MainWindow()
+    #ui.setupUi(MainWindow)
+    sender_window.show()
     sys.exit(app.exec_())
