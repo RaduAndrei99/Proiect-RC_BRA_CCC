@@ -230,11 +230,12 @@ class ReceiverGUI(QWidget):
         self.one_percent_value = float(total_nr_of_packets / 100)
 
     def update_loading_bar(self, packet_nr):
-        self.progress_bar.setValue(int(packet_nr / self.one_percent_value))
+        self.progress_bar.setValue(int(round(packet_nr / self.one_percent_value, 3)))
 
     def acquie_data(self):
         if self.loopback_radio_button.isChecked():
             self.ip_address = "127.0.0.1"
+
         elif self.lan_radio_button.isChecked():
             self.ip_address = self.lan_line_edit_1.text() + '.' + self.lan_line_edit_2.text() + '.' + self.lan_line_edit_3.text() + '.' + self.lan_line_edit_4.text()
 
@@ -266,7 +267,7 @@ class ReceiverGUI(QWidget):
         return True
 
     def write_in_log(self, message):
-        self.log_plain_text.appendPlainText(message)
+        self.log_plain_text.appendPlainText("[" + str(datetime.now().time()) + "] " + message)
 
     def receiver_finished(self):
         self.start_stop_button.setChecked(False)
@@ -297,8 +298,7 @@ class ReceiverGUI(QWidget):
             self.forceCloseReceiver()
 
     def forceCloseReceiver(self):
-        self.receiver.set_is_running(False)
-            
+         
         data_packet = SWPacket(self.receiver.DATA_PACKET_SIZE, self.receiver.DATA_SIZE, self.receiver.PACKET_HEADER_SIZE, packet_type=PacketType.DATA)
         data_packet.make_end_packet()
         data_packet.set_packet_number(0xFFFFFF)
@@ -306,13 +306,12 @@ class ReceiverGUI(QWidget):
         try:
             if self.receiver.is_socket_open() == True:
                 self.receiver.get_socket().sendto(data_packet.get_data(), (self.receiver.get_ip_address(), self.receiver.get_port()))
+        
         except PermissionError as pe:
             self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu aveti permisiunea de a trimite pachete la adresa la care ati facut bind.")
+        
         except OSError as os:
             self.write_in_log("[" + str(datetime.now().time()) + "] " + "Nu puteti timite pachete cu socket-ul inchis.")
-
-        self.receiver.close_connection()
-        self.start_stop_button.setText("Start Receiver")
 
 
 if __name__ == "__main__":

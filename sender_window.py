@@ -392,8 +392,9 @@ class Ui_MainWindow(QWidget):
         self.__sender.check_connection()
     
     def close_sender(self):
-        self.__sender.close_sender()
-        self.__thread_sender.join()
+        if self.__sender.is_running():
+            self.__sender.close_sender()
+            self.__thread_sender.join()
 
     def closeEvent(self,event):
         msgBox = QMessageBox()

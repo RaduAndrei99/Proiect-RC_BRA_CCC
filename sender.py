@@ -101,7 +101,7 @@ class Sender(QObject):
 
 		self.__MAX_FILE_NAME_SIZE = 55 #dimensiunea maxima de caractere pe care poate sa il aiba un fisier ( + extensie)
 
-		self.__resend_val = 10 #indica de cate ori se retrimite un pachet pana cand se decide sa se anuleze transmisiunea
+		self.__resend_val = 20 #indica de cate ori se retrimite un pachet pana cand se decide sa se anuleze transmisiunea
 
 	def create_socket(self, af_type, sock_type):
 		check_socket(af_type, sock_type)
@@ -281,8 +281,8 @@ class Sender(QObject):
 					self.__s.sendto(self.__recent_packets_sent[packet_number], (self.__receiver_ip, self.__receiver_port))
 					resend_value += 1
 					threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_number, resend_value]).start()
-				except KeyError:
-					return
+				except Exception as e:
+					self.log_message_signal.emit(str(e))		
 		else:
 			self.log_message_signal.emit("Pachetul " + str(packet_number) + " a fost retrimis de prea multe ori.")
 			self.log_message_signal.emit("Se anuleaza transmiterea fisierului.")
@@ -417,10 +417,9 @@ class Sender(QObject):
 			data_packet.make_end_packet()
 			data_packet.set_packet_number(0xFFFFFF)
 
-			print(binascii.hexlify(data_packet.get_data()))
 			self.__s.sendto(data_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
 			self.__sender_run_flag = False
 
-		self.__s.close()
+			self.__s.close()
 
 from sender_window import Ui_MainWindow
