@@ -1,13 +1,16 @@
 """
 	Clasa folosita pentru a defini un pachet. 
-	Format: 68 de octeti
-		- primul octet: 0x1 - pachet de initializare
-						0x0 - pachet ce contine date
-
-		- urmatorii trei octeti: indexul pachetului (pot fi maxim 16.777.216 de pachete pentru un fisier)
-		- ultimii 64 de octeti: 
-								daca pachetul este de tip initializare, va contine numele fisierului
-								daca pachetul este de tip data, va contine date efective 
+	Format: Intre 64 si 65535 de octeti
+		- primul octet: 0x00 - pachet ce contine de initializare (nume fisier, dimensiune pachete de date, numarul de pachete de date ce urmeaza sa fie transmis)
+						0x01 - pachet de initializare
+						0x02 - pachet de ACK
+						0x03 - pacchet de verificare conexiune
+		- urmatorii trei octeti: indexul pachetului (pot fi maxim 16.777.216 de pachete pentru un fisier) - de la 0 la 2^24 - 1
+		- in cazul pachetelor de init: * urmatorii 3 octeti contin numarul de pachete de date ce vor fi transmise de catre sender
+									   * urmatorii 2 octeti contin dimensiunea pachetelor de date ce urmeaza sa fie transmise	
+		- ultimii octeti: 
+						 * daca pachetul este de tip initializare, va contine numele fisierului 
+						 * daca pachetul este de tip data, va contine date efective
 """
 
 import enum
@@ -53,7 +56,7 @@ class SWPacket:
 		if self.__byte_array[0] == PacketType.DATA:
 			self.__byte_array[4:self.__package_size] = data_array_in_bytes
 		elif self.__byte_array[0] == PacketType.INIT:
-			self.__byte_array[9:self.__package_size] = data_array_in_bytes
+			self.__byte_array[10:self.__package_size] = data_array_in_bytes
 		else:
 			raise "Cannot set data bytes for a package of type " + str(self.__byte_array[0])
 
@@ -81,7 +84,12 @@ class SWPacket:
 			self.__byte_array[7:9] = pk_size.to_bytes(2, byteorder="big")
 		else:
 			raise "Cannot define the packet size field for type " + str(self.__byte_array[0])
-
+	
+	def set_window_size(self, window_size):
+		if self.__byte_array[0] == PacketType.INIT:
+			self.__byte_array[9:10] = window_size.to_bytes(2, byteorder="big")
+		else:
+			raise "Cannot define the window size field for type " + str(self.__byte_array[0])
 
 if __name__ == '__main__':
 	packet = SWPacket(36,4,4,packet_type=PacketType.ACK)
