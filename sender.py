@@ -423,4 +423,4 @@ class Sender(QObject):
 
 			self.__s.close()
 
-from sender_window import Ui_MainWindow
+from sender_window import SenderGUI
