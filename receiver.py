@@ -81,6 +81,7 @@ class Receiver(QObject):
 
 		self.__is_running = True
 		self.__SWR = {}
+		self.__SWR_size = -1
 		self.__last_packet_received = -1
 		self.__total_nr_of_packets_to_receive = -1
 
@@ -111,6 +112,7 @@ class Receiver(QObject):
 		self.DATA_SIZE = -1
 		self.__is_running = True
 		self.__SWR.clear()
+		self.__SWR_size = -1
 		self.__last_packet_received = -1
 		self.__total_nr_of_packets_to_receive = -1
 		self.__nr_of_packets_lost = 0
@@ -203,7 +205,10 @@ class Receiver(QObject):
 						self.log_signal.emit("Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete a cate " + str(self.DATA_PACKET_SIZE) + " octeti fiecare.")
 						self.__ups.set_packet_size(self.DATA_PACKET_SIZE)
 
-						name += self.__ups.get_byte_x_to_y(6, self.DATA_SIZE, data).decode("ascii")
+						self.__SWR_size = int.from_bytes(self.__ups.get_byte_x_to_y(6, 6, data), "big")
+						self.log_signal.emit("Dimensiunea ferestrei este: " + str(self.__SWR_size))
+
+						name += self.__ups.get_byte_x_to_y(7, self.DATA_SIZE, data).decode("ascii")
 						
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
@@ -241,6 +246,11 @@ class Receiver(QObject):
 					continue
 
 				self.__SWR[nr_packet] = (type, data)
+
+				if len(dict) > self.__SWR_size:
+					self.log_signal.emit("Eroare! S-a depasit dimensiunea ferestrei. Se opreste receptia pachetelor.")
+					self.__is_running = False
+					continue
 
 			self.loading_bar_signal.emit(self.__last_packet_received + 1) # Update loading bar
 
