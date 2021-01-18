@@ -16,7 +16,7 @@ from datetime import datetime
 from queue import Queue
 import socket
 
-class Ui_MainWindow(QWidget):
+class SenderGUI(QWidget):
 
     def __init__(self):
         super().__init__()
@@ -86,7 +86,7 @@ class Ui_MainWindow(QWidget):
         self.log_label.setFont(font)
         self.log_label.setObjectName("log_label")
         self.log_text_edit = QtWidgets.QTextEdit(self.centralwidget)
-        self.log_text_edit.setGeometry(QtCore.QRect(10, 280, 731, 231))
+        self.log_text_edit.setGeometry(QtCore.QRect(10, 320, 731, 231))
         self.log_text_edit.setObjectName("log_text_edit")
         self.path_text_field = QtWidgets.QLineEdit(self.centralwidget)
         self.path_text_field.setGeometry(QtCore.QRect(10, 10, 591, 22))
@@ -344,6 +344,8 @@ class Ui_MainWindow(QWidget):
                 QMessageBox.about(self, "Eroare!", "Trebuie sa alegeti un fisier de trimis!" )  
                 return
 
+            self.disable_components()
+
             if self.get_ip_from_text_field() != "127.0.0.1":
                 self.__sender.set_local_ip_address()
             else:
@@ -356,7 +358,6 @@ class Ui_MainWindow(QWidget):
             self.__thread_sender = threading.Thread(target=self.__sender.start_sender)
             self.__thread_sender.start()
 
-            self.disable_components()
 
         except Exception as e:
             QMessageBox.about(self, "Eroare!", "Eroare la pornirea sender-ului!" )  
@@ -398,7 +399,7 @@ class Ui_MainWindow(QWidget):
 
     def closeEvent(self,event):
         msgBox = QMessageBox()
-        msgBox.setStyleSheet("QLabel{min-width: 250px;}");
+        msgBox.setStyleSheet("QLabel{min-width: 250px;}")
         msgBox.setWindowTitle("Confirmati iesirea...")
         msgBox.setInformativeText("Sunteti sigur ca doriti sa iesiti?\n")
         msgBox.addButton(QtWidgets.QPushButton('Nu'), QMessageBox.NoRole)
@@ -414,8 +415,8 @@ class Ui_MainWindow(QWidget):
 if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
-    sender_window = Ui_MainWindow()
-    #ui = Ui_MainWindow()
+    sender_window = SenderGUI()
+    #ui = SenderGUI()
     #ui.setupUi(MainWindow)
     sender_window.show()
     sys.exit(app.exec_())

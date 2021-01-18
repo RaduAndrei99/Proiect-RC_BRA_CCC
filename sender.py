@@ -99,7 +99,7 @@ class Sender(QObject):
 
 		self.__path = "" #path-ul catre fisierul care urmeaza sa fie trimis
 
-		self.__MAX_FILE_NAME_SIZE = 55 #dimensiunea maxima de caractere pe care poate sa il aiba un fisier ( + extensie)
+		self.__MAX_FILE_NAME_SIZE = 54 #dimensiunea maxima de caractere pe care poate sa il aiba un fisier ( + extensie)
 
 		self.__resend_val = 20 #indica de cate ori se retrimite un pachet pana cand se decide sa se anuleze transmisiunea
 
@@ -209,8 +209,8 @@ class Sender(QObject):
 				file_name = file_name[0:self.__MAX_FILE_NAME_SIZE-len(file_name.split(".")[-1])-1] + "."  + file_name.split(".")[-1]
 				print(file_name)
 
+
 			first_packet.store_data(bytes(file_name, 'utf-8'))
-			first_packet.make_first_packet()
 
 			packets_to_send = 0
 
@@ -220,6 +220,7 @@ class Sender(QObject):
 				packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
 
 			first_packet.set_packets_to_send(packets_to_send)
+			first_packet.set_window_size(self.__window_size)
 
 			count += 1
 
@@ -422,4 +423,4 @@ class Sender(QObject):
 
 			self.__s.close()
 
-from sender_window import Ui_MainWindow
+from sender_window import SenderGUI
