@@ -247,7 +247,7 @@ class Receiver(QObject):
 
 				self.__SWR[nr_packet] = (type, data)
 
-				if len(dict) > self.__SWR_size:
+				if len(self.__SWR) > self.__SWR_size:
 					self.log_signal.emit("Eroare! S-a depasit dimensiunea ferestrei. Se opreste receptia pachetelor.")
 					self.__is_running = False
 					continue

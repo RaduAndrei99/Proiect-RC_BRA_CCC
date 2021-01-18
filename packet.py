@@ -87,7 +87,7 @@ class SWPacket:
 	
 	def set_window_size(self, window_size):
 		if self.__byte_array[0] == PacketType.INIT:
-			self.__byte_array[9:10] = window_size.to_bytes(2, byteorder="big")
+			self.__byte_array[9:10] = window_size.to_bytes(1, byteorder="big")
 		else:
 			raise "Cannot define the window size field for type " + str(self.__byte_array[0])
 
