@@ -234,7 +234,7 @@ class Sender(QObject):
 			thread_1.start()
 			thread_2.start()
 
-			#print(binascii.hexlify(first_packet.get_data()))
+			print(binascii.hexlify(first_packet.get_data()))
 			for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
 				if self.__sender_run_flag == True:
 					self.__condition.acquire()
