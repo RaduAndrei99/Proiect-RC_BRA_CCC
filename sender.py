@@ -66,7 +66,7 @@ class Sender(QObject):
 		self.__timeout_value = 0.2 #valoarea de timeout in secunde cat se asteapta confirmarea pentru primirea unui packet
 
 		self.__ps = PackingSystem() #obiectul pentru impachetarea fisierelor
-		self.__ups = UnPackingSystem(4, 0) #obiechtul pentru despachetare
+		self.__ups = UnPackingSystem(4) #obiechtul pentru despachetare
 
 		self.__window_size = 100 #lungimea ferestrei
 		self.__next_lowest_package = 1 #valoarea pana la urmatorul cel mai mic pachet din fereastra

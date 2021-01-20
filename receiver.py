@@ -86,7 +86,7 @@ class Receiver(QObject):
 		self.__total_nr_of_packets_to_receive = -1
 
 		self.__file_writer = FileWriter("")
-		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE, self.DATA_SIZE)
+		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE)
 
 		self.__nr_of_packets_recv = 0
 		self.__nr_of_packets_lost = 0
