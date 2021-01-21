@@ -55,6 +55,7 @@ class Sender(QObject):
 
 	file_sent_signal = pyqtSignal(bool) #semnal pentru a transmite finalizarea transmiterii fisierului
 
+	kill_app = pyqtSignal(bool)
 	def __init__(self, snd_ip, snd_port):
 		super(Sender, self).__init__()
 		self.__sender_ip = snd_ip #ip-ul sender-ului
@@ -103,6 +104,8 @@ class Sender(QObject):
 
 		self.__resend_val = 20 #indica de cate ori se retrimite un pachet pana cand se decide sa se anuleze transmisiunea
 
+		self.__resend_error = False
+
 	def create_socket(self, af_type, sock_type):
 		check_socket(af_type, sock_type)
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
@@ -115,6 +118,7 @@ class Sender(QObject):
 		self.__recent_packets_sent.clear()
 		self.__recent_ACK_received.clear()
 		self.__buffer.queue.clear()
+		self.__resend_error == False
 
 		#thread_1 = threading.Thread(target=self.wait_for_ACK)
 		#thread_2 = threading.Thread(target=self.send_packages_to_buffer)
@@ -132,6 +136,7 @@ class Sender(QObject):
 
 		self.file_sent_signal.emit(True)
 		self.__sender_run_flag = False
+		self.__s.close()
 		self.log_message_signal.emit("S-a terminat thread-ul sender-ului")	
 
 
@@ -142,51 +147,48 @@ class Sender(QObject):
 			last_packet_acknowledged = False
 			self.__valid == False
 			while 1:
-				if self.__sender_run_flag == True:
-					data_readed, address = self.__s.recvfrom(4)
-					packet.create_packet(data_readed)
-					package_type, nr_packet, data = self.__ups.unpack(packet)
+				data_readed, address = self.__s.recvfrom(4)
+				packet.create_packet(data_readed)
+				package_type, nr_packet, data = self.__ups.unpack(packet)
 
-					if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
+				if package_type == PacketType.ACK and nr_packet >= self.__lowest_window_package:
 
-						self.__mutex.acquire()
-						try:
-							self.__recent_packets_sent.pop(nr_packet)
-						except KeyError:
-							continue
-						finally:
-							self.__mutex.release()
-							
-						self.__packages_sent_and_received += 1
+					self.__mutex.acquire()
+					try:
+						self.__recent_packets_sent.pop(nr_packet)
+					except KeyError:
+						continue
+					finally:
+						self.__mutex.release()
 						
-						self.log_message_signal.emit("Am primit raspuns pozitiv pentru " + str(nr_packet))	
+					self.__packages_sent_and_received += 1
+					
+					self.log_message_signal.emit("Am primit raspuns pozitiv pentru " + str(nr_packet))	
 
-						if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2 or last_packet_acknowledged == True:
-							last_packet_acknowledged = True
-							if bool(self.__recent_packets_sent) == False:
-								self.__valid = True
+					if nr_packet == int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2 or last_packet_acknowledged == True:
+						last_packet_acknowledged = True
+						if bool(self.__recent_packets_sent) == False:
+							break
+					
+					if nr_packet == self.__lowest_window_package:
+						for i in range(self.__lowest_window_package + 1, self.__lowest_window_package + self.__window_size + 1):
+							if i not in self.__recent_ACK_received:
+								for k in range(self.__lowest_window_package + 1, i):
+									self.__recent_ACK_received.pop(k)
+								self.__lowest_window_package = i
 								break
-						
-						if nr_packet == self.__lowest_window_package:
-							for i in range(self.__lowest_window_package + 1, self.__lowest_window_package + self.__window_size + 1):
-								if i not in self.__recent_ACK_received:
-									for k in range(self.__lowest_window_package + 1, i):
-										self.__recent_ACK_received.pop(k)
-									self.__lowest_window_package = i
-									break
 
-						else:
-							self.__recent_ACK_received[nr_packet] = nr_packet
-				else:
-					break
+					else:
+						self.__recent_ACK_received[nr_packet] = nr_packet
+
+				if self.__sender_run_flag == False:
+					self.log_message_signal.emit("wait_for_ack: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
+					return
 				
 		except Exception as e:
-			self.__sender_run_flag = False
 			self.log_message_signal.emit("wait_for_ack: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
-			self.log_message_signal.emit(str(e))
-			self.__recent_packets_sent.clear()
-			self.__recent_ACK_received.clear()
-			self.__s.close()
+			self.log_message_signal.emit("wait_for_ACK: " + str(e))
+			self.__sender_run_flag = False
 			return
 
 
@@ -230,34 +232,37 @@ class Sender(QObject):
 
 				self.__buffer.put(first_packet)
 
-				thread_1 = threading.Thread(target=self.wait_for_ACK)
-				thread_2 = threading.Thread(target=self.send_files_with_SW)
+				self.__thread_1 = threading.Thread(target=self.wait_for_ACK)
+				self.__thread_2 = threading.Thread(target=self.send_files_with_SW)
 
-				thread_1.start()
-				thread_2.start()
+				self.__thread_1.start()
+				self.__thread_2.start()
+
+				
 
 				print(binascii.hexlify(first_packet.get_data()))
 				for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
-					if self.__sender_run_flag == True:
-						self.__condition.acquire()
-						if self.__buffer.qsize() == self.__QUEUE_SIZE:
-							self.__condition.wait(timeout=2)
-							if self.__sender_run_flag == False:
-								self.__condition.notify()
-								self.__condition.release()	
-								continue
-						self.__buffer.put(self.__ps.pack_data())
-						self.__condition.notify()
-						self.__condition.release()
-						count+=1
-					else:
+
+					if self.__sender_run_flag == False:
 						self.__ps.close_file()
 						self.log_message_signal.emit("S-a terminat thread-ul care pune pachete in buffer mai devreme din cauza unei erori.")
 
-						thread_1.join()
-						thread_2.join()						
+						self.__thread_1.join()
+						self.__thread_2.join()						
 						return
 
+					self.__condition.acquire()
+					if self.__buffer.qsize() == self.__QUEUE_SIZE:
+						self.__condition.wait(3)
+						if self.__sender_run_flag == False:
+							self.__condition.notify()
+							self.__condition.release()	
+							continue
+					self.__buffer.put(self.__ps.pack_data())
+					self.__condition.notify()
+					self.__condition.release()
+					count+=1
+					time.sleep(0.001)
 
 				self.__buffer.put(self.__ps.get_end_file_packet())
 
@@ -269,18 +274,17 @@ class Sender(QObject):
 				self.__ps.close_file()
 				self.log_message_signal.emit("S-a terminat thread-ul care pune pachete un buffer.")
 
-				thread_1.join()
-				thread_2.join()
+				self.__thread_1.join()
+				self.__thread_2.join()
 			else:
 				self.log_message_signal.emit("Fisierul este prea mare pentru a putea fi trimis!")
 				self.log_message_signal.emit("Va rugam mariti dimensiunea campului de date din pachet daca se poate.")
+
 		except Exception as e:
 			self.__sender_run_flag = False
 			self.log_message_signal.emit("send_packages_to_buffer: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
-			self.log_message_signal.emit(str(e))
-			self.__recent_packets_sent.clear()
-			self.__recent_ACK_received.clear()
-			self.__s.close()
+			self.log_message_signal.emit("send_packages_to_buffer: " + str(e))
+
 			return
 
 
@@ -293,15 +297,15 @@ class Sender(QObject):
 					resend_value += 1
 					threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_number, resend_value]).start()
 				except Exception as e:
-					self.log_message_signal.emit(str(e))		
+					self.log_message_signal.emit("packet_timeout: " + str(e))		
 		else:
-			self.log_message_signal.emit("Pachetul " + str(packet_number) + " a fost retrimis de prea multe ori.")
-			self.log_message_signal.emit("Se anuleaza transmiterea fisierului.")
-			self.__sender_run_flag = False
-			self.__recent_packets_sent.clear()
-			self.__recent_ACK_received.clear()
-			self.__s.close()
+			if self.__resend_error == False:
+				self.log_message_signal.emit("Pachetul " + str(packet_number) + " a fost retrimis de prea multe ori.")
+				self.log_message_signal.emit("Se anuleaza transmiterea fisierului.")
 
+				self.__sender_run_flag = False
+
+				self.__resend_error = True
 			return
 
 	def send_files_with_SW(self):
@@ -313,45 +317,42 @@ class Sender(QObject):
 			self.__lowest_window_package = 0
 
 			while self.__current_packet_number < int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3:
-				if self.__sender_run_flag == True:
-					if self.__current_packet_number >= self.__lowest_window_package and self.__current_packet_number < self.__lowest_window_package + self.__window_size:
-						self.__condition.acquire()
-						if self.__buffer.qsize() == 0:
-							self.__condition.wait(timeout=2)
-							if self.__sender_run_flag == False:
-								self.__condition.notify()
-								self.__condition.release()	
-								continue
-						packet_to_send = self.__buffer.get()
-						self.__condition.notify()
-						self.__condition.release()	
+				if self.__sender_run_flag == False:
+						self.log_message_signal.emit("S-a terminat thread-ul care trimite fisiere mai devreme din cauza unei erori.")
+						return
+				if self.__current_packet_number >= self.__lowest_window_package and self.__current_packet_number < self.__lowest_window_package + self.__window_size:
+					
+					self.__condition.acquire()
+					if self.__buffer.qsize() == 0:
+						self.__condition.wait(3)
 
-						self.__mutex.acquire()
-						try:
-							self.__recent_packets_sent[packet_to_send.get_packet_number()] = packet_to_send.get_data()
-						finally:
-							self.__mutex.release()
-							
-						self.__current_packet_number += 1
+						if self.__sender_run_flag == False:
+							self.__condition.notify()
+							self.__condition.release()	
+							continue
+					packet_to_send = self.__buffer.get()
+					self.__condition.notify()
+					self.__condition.release()	
 
-						self.__s.sendto(packet_to_send.get_data(), (self.__receiver_ip, self.__receiver_port))
-						self.log_message_signal.emit("Trimit pachetul " + str(packet_to_send.get_packet_number()))		
-						threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number(), 0]).start()
-				else:
-					self.log_message_signal.emit("S-a terminat thread-ul care trimite fisiere mai devreme din cauza unei erori.")
-					return
+					self.__mutex.acquire()
+					try:
+						self.__recent_packets_sent[packet_to_send.get_packet_number()] = packet_to_send.get_data()
+					finally:
+						self.__mutex.release()
+						
+					self.__current_packet_number += 1
 
-			while self.__valid == False:
-				if self.__valid == True:
-						self.__s.close()
+					self.__s.sendto(packet_to_send.get_data(), (self.__receiver_ip, self.__receiver_port))
+					self.log_message_signal.emit("Trimit pachetul " + str(packet_to_send.get_packet_number()))		
+					threading.Timer(self.__timeout_value, self.packet_timeout, args = [packet_to_send.get_packet_number(), 0]).start()
+
+
 			self.log_message_signal.emit("S-a terminat thread-ul care trimite fisiere.")
 		except Exception as e:
 			self.__sender_run_flag = False
-			self.log_message_signal.emit("Conexiunea s-a inchis dintr-o cauza necunoscuta.")
-			self.log_message_signal.emit(str(e))
-			self.__recent_packets_sent.clear()
-			self.__recent_ACK_received.clear()
-			self.__s.close()
+			self.log_message_signal.emit("send_files_with_SW: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
+			self.log_message_signal.emit("send_files_with_SW: " + str(e))
+
 			return
 
 	
@@ -387,11 +388,10 @@ class Sender(QObject):
 			else:
 				self.log_message_signal.emit("Conexiunea este invalida!")
 
-			self.__s.close()
 		except ConnectionResetError:
 			self.log_message_signal.emit("Eroare! Conexiunea este invalida!")
 		except Exception as e:
-			self.log_message_signal.emit(str(e))
+			self.log_message_signal.emit("check_connection: " + str(e))
 		finally:
 			self.__s.close()
 
