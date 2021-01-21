@@ -35,9 +35,9 @@ def check_socket(af_type, sock_type):
 		print(e)
 		sys.exit(1)
 
-def is_packet_lost(probability):
-	try:
-		if probability == 0:
+def is_packet_lost(probability):	# Functia returneaza un rezultat boolean.
+	try:							# Probabilitatea stabilita stabileste probabilitatea de a returna False.
+		if probability == 0:		# Folosita pentru a se stabili daca se va pierde pachetul primit la nivelul receiver-ului.
 			return False
 			
 		if probability < 0 or probability > 100:
@@ -48,49 +48,57 @@ def is_packet_lost(probability):
 
 	return (random.randint(0, 99) < probability)
 
+'''
+	Clasa ce defineste tipul de data Receiver.
+	Clasa defineste entitatea care se ocupa cu primrea pachetelor prin intermediul unui socket dat ca membru si gestionate folosind protocolul cu fereastra glisata. 
+'''
+
 class Receiver(QObject):
 
-	log_signal = pyqtSignal(str)
-	finish_signal = pyqtSignal()
-	set_total_nr_of_packets_signal = pyqtSignal(int)
-	loading_bar_signal = pyqtSignal(int)
+	log_signal = pyqtSignal(str)						# Obiect de tip pyqtSignal menit sa transmita mesaje catre log-ul din interfata grafica.
+	finish_signal = pyqtSignal()						# Obiect de tip pyqtSignal menit sa transmita un semnal in momentul in care se termina de primit pachete.
+	set_total_nr_of_packets_signal = pyqtSignal(int)	# Obiect de tip pyqtSignal menit sa transmita un semnal in momentul in care se cunoaste numarul total de pachete ce urmeaza sa se primeasca.
+	loading_bar_signal = pyqtSignal(int)				# Obiect de tip pyqtSignal menit sa transmita un semnal in care se primeste un pachet.
 
-	INIT_PACKET_SIZE = 64
-	DATA_PACKET_SIZE = INIT_PACKET_SIZE
-	CHECK_PACKET_SIZE = 4
-	ACK_PACKET_SIZE = 4
+	INIT_PACKET_SIZE = 64								# Dimensiunea pachetului de initializare. Este stabilita ca fiind 64 de octeti.
+	DATA_PACKET_SIZE = INIT_PACKET_SIZE					# Dimensiunea pachetului de date. Initial nu se cunoaste dimensiunea pachetului ce va fi transmis. Se intializeaza cu 64 octeti.
+	CHECK_PACKET_SIZE = 4								# Dimensiunea pachetului de confirmare
+	ACK_PACKET_SIZE = 4									# Dimensiunea pachetului de acknowledge
 
-	PACKET_TYPE_SIZE = 1
-	PACKET_COUNTER_SIZE = 3
-	DATA_SIZE = DATA_PACKET_SIZE - PACKET_COUNTER_SIZE - PACKET_TYPE_SIZE
-	PACKET_HEADER_SIZE = PACKET_TYPE_SIZE + PACKET_COUNTER_SIZE
+	PACKET_TYPE_SIZE = 1								# Dimensiunea campului tipului de pachet primit
+	PACKET_COUNTER_SIZE = 3								# Dimensiunea campului numarului de secventa din pachet
+	DATA_SIZE = DATA_PACKET_SIZE - PACKET_COUNTER_SIZE - PACKET_TYPE_SIZE	# Dimensiunea campului de date din pachete de date
+	PACKET_HEADER_SIZE = PACKET_TYPE_SIZE + PACKET_COUNTER_SIZE				# Dimensiunea header-ului pachetului
 
 	FIRST_PACKET = 0
 
 	def __init__(self):
 		super(Receiver, self).__init__()
 
-		socket.setdefaulttimeout(10)
+		socket.setdefaulttimeout(10)					# Setarea timeout-ului de asteptare al socket-ului la 10 secunde
 
-		self.__error_occurred = False
-		self.__is_socket_open = False
+		self.__error_occurred = False					# Variabila booleana care specifica daca s-a intamplat vreo eroare inainte de inceperea primrii pachetelor
+		self.__is_socket_open = False					# Variabila booleana care specifica daca socket-ul este deschis.
 
-		self.__receiver_ip = 0
-		self.__receiver_port = 0
-		self.__losing_packets_probability = 0
+		self.__receiver_ip = None						# IP-ul receiver-ului.
+		self.__receiver_port = None						# Portul receiver-ului
+		self.__losing_packets_probability = 0			# Probabilitatea de pierdere a pachetelor
 
-		self.__is_running = True
-		self.__SWR = {}
-		self.__SWR_size = -1
-		self.__last_packet_received = -1
-		self.__total_nr_of_packets_to_receive = -1
+		self.__is_running = True						# Variabila booleana care specifica daca receiver-ul ruleaza
+		self.__SWR = {}									# Fereastra protocolului sliding window de la nivelul receiver-ului
+		self.__SWR_size = -1							# Dimensiunea ferestrei
+		self.__last_packet_received = -1				# Ultimul pachet primit
+		self.__total_nr_of_packets_to_receive = -1		# Numarul total de pachete care se vor primi
 
-		self.__file_writer = FileWriter("")
-		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE)
+		self.__file_writer = FileWriter("")					# Obiect de tip FileWriter care gestioneaza fisierul in care se vor scrie datele primite.
+		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE)	# Obiect de tip UnPackingSystem care desparte datele primite in campuri de biti.
 
-		self.__nr_of_packets_recv = 0
-		self.__nr_of_packets_lost = 0
+		self.__nr_of_packets_recv = 0						# Numarul total de pachete primite
+		self.__nr_of_packets_lost = 0						# Numarul total de pachete pierdute
 
+	'''
+		Functie membru pentru crearea unui socket
+	'''
 	def create_socket(self, af_type, sock_type):
 
 		random.seed(datetime.now())
@@ -107,6 +115,9 @@ class Receiver(QObject):
 
 		self.log_signal.emit("S-a facut bind pe adresa: " + str(self.__receiver_ip) + " si portul: " + str(self.__receiver_port))
 
+	'''
+		Functie membru pentru reinitializarea membrilor receiver-ului dupa terminarea acestuia
+	'''
 	def reset_receiver(self):
 		self.DATA_PACKET_SIZE = self.INIT_PACKET_SIZE
 		self.DATA_SIZE = -1
@@ -118,9 +129,12 @@ class Receiver(QObject):
 		self.__nr_of_packets_lost = 0
 		self.__nr_of_packets_recv = 0
 
+	'''
+		Functie membru care implementeaza functionalitatea receiver-ului 
+	'''
 	def start_receiver(self):
 
-		if self.__error_occurred == True:
+		if self.__error_occurred == True:		# Daca s-a intamplat vreo eroare la crearea socket-ului, procedura de gestionare a pachetelor nu mai are loc. 
 			self.__error_occurred = False
 			return
 
@@ -132,12 +146,14 @@ class Receiver(QObject):
 		self.log_signal.emit("Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
 		self.log_signal.emit("Se asteapta pachete...")
 
+		########################### Incepere gestionare pachete ###############################
+
 		while self.__is_running:
 
 			try:
-				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)	# Primire pachete
+				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
 			except socket.timeout:
-				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului s-a terminat.")
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " secunde al receiver-ului s-a terminat.")
 				self.__is_running = False
 				continue
 			except OSError as os:
@@ -146,16 +162,9 @@ class Receiver(QObject):
 					self.log_signal.emit("Se asteapta pachete in continuare...")
 					continue
 
-			try:
-				data_readed
-			except UnboundLocalError as ul:
-				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului s-a terminat...")
-				self.__is_running = False
-				continue
-
 			self.__nr_of_packets_recv += 1
 
-			########################### Testare a conexiunie ###############################
+			########################### Testarea conexiunii ###############################
 
 			if int.from_bytes(data_readed[:self.PACKET_HEADER_SIZE - self.PACKET_COUNTER_SIZE], "big") == PacketType.CHECK:	# Retrimitere pachete de conexiune
 				self.log_signal.emit("Am primit mesaj de testare a conexiunii de la adresa: " + str(address))
@@ -181,7 +190,7 @@ class Receiver(QObject):
 
 			########################### Mecanism sliding window ###############################
 
-			if nr_packet == self.__last_packet_received + 1:
+			if nr_packet == self.__last_packet_received + 1:	# Gestionarea pachetului urmator 
 
 				if type == PacketType.DATA:
 					if self.__file_writer.is_open() == True:
@@ -222,7 +231,7 @@ class Receiver(QObject):
 		
 				self.__last_packet_received += 1
 
-				while self.__last_packet_received + 1 in self.__SWR.keys():
+				while self.__last_packet_received + 1 in self.__SWR.keys():	# Gestionarea pachetului care ocupa primul loc din fereastra 
 
 					(type, data) = self.__SWR[self.__last_packet_received + 1]
 					self.__SWR.pop(self.__last_packet_received + 1)
@@ -240,7 +249,8 @@ class Receiver(QObject):
 
 					self.__last_packet_received += 1
 
-			elif nr_packet > self.__last_packet_received + 1:
+			elif nr_packet > self.__last_packet_received + 1:	# Gestionarea pachetului primit care nu ar ocupa primul loc din fereastra
+
 				if nr_packet == 0xFFFFFF:
 					self.__is_running = False
 					continue
@@ -252,9 +262,9 @@ class Receiver(QObject):
 					self.__is_running = False
 					continue
 
-			self.loading_bar_signal.emit(self.__last_packet_received + 1) # Update loading bar
+			self.loading_bar_signal.emit(self.__last_packet_received + 1) 	# Update loading bar
 
-			###################################################
+			########################### Terminare executie receiver ###############################
 
 		if self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:
 			end = time.time()
@@ -269,12 +279,15 @@ class Receiver(QObject):
 			self.__file_writer.close_file()
 			self.log_signal.emit("Fisierul s-a inchis.")
 
-		while self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trmitem ACK-uri pierdute
+		while self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trimitem ACK-uri pierdute
 			
+			self.log_signal.emit("Se asteapta pachete pentru care s-a pierdut confirmarea.")
+			self.log_signal.emit("Receiver-ul se opreste automat in " + str(socket.getdefaulttimeout()) + " secunde daca nu se primesc pachete.")
+
 			try:
 				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 			except socket.timeout:
-				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului in partea de ACK s-a terminat.")
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " secunde al receiver-ului in partea de ACK s-a terminat.")
 				break
 
 			data_packet.create_packet(data_readed)
@@ -283,15 +296,15 @@ class Receiver(QObject):
 			if nr_packet == 0xFFFFFF:
 				self.log_signal.emit("Program finalizat cu succes.")
 				break
-			else:
+			elif nr_packet > self.__last_packet_received - self.__SWR_size:	# Verificam ca pachete primite sa ocupe ultima fereastra
 				self.log_signal.emit("Am primit ACK pentru pachetul cu numarul: " + str(nr_packet))
-				ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
+				ack_packet.set_packet_number(nr_packet)
 
 				self.__s.sendto(ack_packet.get_header(), address)
 
 		self.close_connection()
 
-		self.finish_signal.emit()				# Resetam buton
+		self.finish_signal.emit() # Resetam butoanele interfetei
 		self.reset_receiver()
 
 	def set_ip_address(self, ip_address):
