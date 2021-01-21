@@ -115,20 +115,7 @@ class Sender(QObject):
 		self.__recent_ACK_received.clear()
 		self.__buffer.queue.clear()
 
-		#thread_1 = threading.Thread(target=self.wait_for_ACK)
-		#thread_2 = threading.Thread(target=self.send_packages_to_buffer)
-		#thread_3 = threading.Thread(target=self.send_files_with_SW)
-
 		self.send_packages_to_buffer()
-		
-		#thread_1.start()
-		#thread_2.start()
-		#thread_3.start()
-
-		#thread_1.join()
-		#thread_2.join()
-		#thread_3.join()
-
 
 		self.__sender_run_flag = False
 		self.__s.close()
@@ -182,7 +169,7 @@ class Sender(QObject):
 				if self.__sender_run_flag == False:
 					self.log_message_signal.emit("wait_for_ack: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
 					return
-				self.log_message_signal.emit("slowest: " + str(self.__lowest_window_package))
+				#self.log_message_signal.emit("slowest: " + str(self.__lowest_window_package))
 				
 		except Exception as e:
 			self.log_message_signal.emit("wait_for_ack: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
@@ -431,8 +418,8 @@ class Sender(QObject):
 				self.__sender_run_flag = False
 
 				
-		except Exception:
-			return
+		except Exception as e:
+			self.log_message_signal.emit(str(e))
 		finally:
 			self.__s.close()
 
