@@ -66,7 +66,7 @@ class Sender(QObject):
 		self.__timeout_value = 0.2 #valoarea de timeout in secunde cat se asteapta confirmarea pentru primirea unui packet
 
 		self.__ps = PackingSystem() #obiectul pentru impachetarea fisierelor
-		self.__ups = UnPackingSystem(4, 0) #obiechtul pentru despachetare
+		self.__ups = UnPackingSystem(4) #obiechtul pentru despachetare
 
 		self.__window_size = 100 #lungimea ferestrei
 		self.__next_lowest_package = 1 #valoarea pana la urmatorul cel mai mic pachet din fereastra
@@ -131,6 +131,7 @@ class Sender(QObject):
 		#thread_3.join()
 
 		self.file_sent_signal.emit(True)
+		self.__sender_run_flag = False
 		self.log_message_signal.emit("S-a terminat thread-ul sender-ului")	
 
 
@@ -365,7 +366,7 @@ class Sender(QObject):
 			self.create_socket("AF_INET", "SOCK_DGRAM")
 
 			self.__s.setblocking(False)
-			self.__s.settimeout(5.0)
+			self.__s.settimeout(10)
 
 			test_packet = SWPacket(4, 0, 4, packet_type=PacketType.CHECK)
 

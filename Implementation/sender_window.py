@@ -416,6 +416,7 @@ if __name__ == "__main__":
     import sys
     app = QtWidgets.QApplication(sys.argv)
     sender_window = SenderGUI()
+    sender_window.setWindowTitle("Sender Window")
     #ui = SenderGUI()
     #ui.setupUi(MainWindow)
     sender_window.show()

@@ -81,11 +81,12 @@ class Receiver(QObject):
 
 		self.__is_running = True
 		self.__SWR = {}
+		self.__SWR_size = -1
 		self.__last_packet_received = -1
 		self.__total_nr_of_packets_to_receive = -1
 
 		self.__file_writer = FileWriter("")
-		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE, self.DATA_SIZE)
+		self.__ups = UnPackingSystem(self.DATA_PACKET_SIZE)
 
 		self.__nr_of_packets_recv = 0
 		self.__nr_of_packets_lost = 0
@@ -111,6 +112,7 @@ class Receiver(QObject):
 		self.DATA_SIZE = -1
 		self.__is_running = True
 		self.__SWR.clear()
+		self.__SWR_size = -1
 		self.__last_packet_received = -1
 		self.__total_nr_of_packets_to_receive = -1
 		self.__nr_of_packets_lost = 0
@@ -128,7 +130,7 @@ class Receiver(QObject):
 		name = "new_"
 
 		self.log_signal.emit("Probabilitatea de pierdere a pachetelor este: " + str(self.__losing_packets_probability))
-		self.log_signal.emit("Se asteapta pachete in continuare...")
+		self.log_signal.emit("Se asteapta pachete...")
 
 		while self.__is_running:
 
@@ -141,7 +143,7 @@ class Receiver(QObject):
 			except OSError as os:
 				if "[WinError 10040]" in str(os):
 					self.log_signal.emit("[WinError 10040] S-a primit un pachet mai mare decat dimensiunea buffer-ului de receptie.")
-					self.log_signal.emit("Se asteapta pachete...")
+					self.log_signal.emit("Se asteapta pachete in continuare...")
 					continue
 
 			try:
@@ -203,7 +205,10 @@ class Receiver(QObject):
 						self.log_signal.emit("Se vor primii " + str(self.__total_nr_of_packets_to_receive) + " pachete a cate " + str(self.DATA_PACKET_SIZE) + " octeti fiecare.")
 						self.__ups.set_packet_size(self.DATA_PACKET_SIZE)
 
-						name += self.__ups.get_byte_x_to_y(6, self.DATA_SIZE, data).decode("ascii")
+						self.__SWR_size = int.from_bytes(self.__ups.get_byte_x_to_y(6, 6, data), "big")
+						self.log_signal.emit("Dimensiunea ferestrei este: " + str(self.__SWR_size))
+
+						name += self.__ups.get_byte_x_to_y(7, self.DATA_SIZE, data).decode("ascii")
 						
 						self.__file_writer.set_file_name(name)
 						self.__file_writer.open_file()
@@ -241,6 +246,11 @@ class Receiver(QObject):
 					continue
 
 				self.__SWR[nr_packet] = (type, data)
+
+				if len(self.__SWR) > self.__SWR_size:
+					self.log_signal.emit("Eroare! S-a depasit dimensiunea ferestrei. Se opreste receptia pachetelor.")
+					self.__is_running = False
+					continue
 
 			self.loading_bar_signal.emit(self.__last_packet_received + 1) # Update loading bar
 

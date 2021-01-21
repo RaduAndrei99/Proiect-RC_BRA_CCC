@@ -321,7 +321,8 @@ if __name__ == "__main__":
     
     app = QtWidgets.QApplication(sys.argv)
     receiver_window = ReceiverGUI()
-    
+    receiver_window.setWindowTitle("Receiver Window")
+
     #ui = ReceiverGUI()
     #ui.setupUi(ReceiverWindow)
     receiver_window.show()
