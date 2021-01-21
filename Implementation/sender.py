@@ -93,8 +93,6 @@ class Sender(QObject):
 		self.__condition = Condition() #numarul de pachete care au fost puse in buffer
 
 		self.__mutex = Lock() #mutex folosit pentru a asigura coerenta datelor pentru dicitonarul care retine pachetele care asteapta mesaje de ACK
-
-		self.__valid = False  #boolean folosit pentru a sincroniza terminarea functiilor de wait_for_ack si send_files_with_SW
 		
 		self.__sender_run_flag = False #flag-ul de run
 
@@ -143,9 +141,11 @@ class Sender(QObject):
 			self.log_message_signal.emit("S-a pornit thread-ul care asteapta mesaje de ACK")	
 			packet = SWPacket(4,0,4,packet_type=PacketType.ACK)
 			last_packet_acknowledged = False
-			self.__valid == False
+
+			self.__s.setblocking(False)
+			self.__s.settimeout(10)
 			while 1:
-				data_readed, address = self.__s.recvfrom(4)
+				data_readed, address = self.__s.recvfrom(5)
 				packet.create_packet(data_readed)
 				package_type, nr_packet, data = self.__ups.unpack(packet)
 
@@ -304,8 +304,6 @@ class Sender(QObject):
 
 			self.__sender_run_flag = False
 
-			self.__s.close()
-
 			return
 
 	def send_files_with_SW(self):
@@ -432,8 +430,10 @@ class Sender(QObject):
 				self.__s.sendto(data_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
 				self.__sender_run_flag = False
 
-				self.__s.close()
+				
 		except Exception:
 			return
+		finally:
+			self.__s.close()
 
 from sender_window import SenderGUI
