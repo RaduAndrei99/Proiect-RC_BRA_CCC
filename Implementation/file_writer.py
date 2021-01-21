@@ -1,4 +1,3 @@
-
 #	Clasa folosita pentru gestionarea comportametului de scriere intr-un fisier
 #	Clasa contine o referinta la un fisier
 
@@ -32,4 +31,3 @@ class FileWriter:
 
 	def is_open(self):
 		return self.__is_open
-

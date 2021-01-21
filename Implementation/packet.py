@@ -71,7 +71,7 @@ class SWPacket:
 		self.__byte_array[0] = 0xFF
 	
 	def make_first_packet(self):
-		self.__byte_array[0] = 0x0
+		self.__byte_array[0] = 0x00
 	
 	def set_packets_to_send(self, no_of_packets):
 		if self.__byte_array[0] == PacketType.INIT:
@@ -90,7 +90,3 @@ class SWPacket:
 			self.__byte_array[9:10] = window_size.to_bytes(1, byteorder="big")
 		else:
 			raise "Cannot define the window size field for type " + str(self.__byte_array[0])
-
-if __name__ == '__main__':
-	packet = SWPacket(36,4,4,packet_type=PacketType.ACK)
-	print(packet)

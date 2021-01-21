@@ -321,9 +321,5 @@ if __name__ == "__main__":
     
     app = QtWidgets.QApplication(sys.argv)
     receiver_window = ReceiverGUI()
-    
-    #ui = ReceiverGUI()
-    #ui.setupUi(ReceiverWindow)
     receiver_window.show()
     sys.exit(app.exec_())
-
