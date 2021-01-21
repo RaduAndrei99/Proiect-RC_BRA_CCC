@@ -194,85 +194,94 @@ class Sender(QObject):
 
 
 	def send_packages_to_buffer(self):	
-		self.log_message_signal.emit("Se trimite fisierul " + self.__path.split("/")[-1])
+		try:
+			self.log_message_signal.emit("Se trimite fisierul " + self.__path.split("/")[-1])
 
-		count = 0
-		self.__ps.reset()
-		self.__ps.open_file(self.__path) 
+			count = 0
+			self.__ps.reset()
+			self.__ps.open_file(self.__path) 
 
-		if self.__ps.get_file_size() < (2**24 - 2)*self.__packet_size:
+			if self.__ps.get_file_size() < (2**24 - 2)*self.__packet_size:
 
-			first_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.INIT)
+				first_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.INIT)
 
-			file_name = self.__path.split("/")[-1]
+				file_name = self.__path.split("/")[-1]
 
-			if len(file_name) > self.__MAX_FILE_NAME_SIZE:
-				file_name = file_name[0:self.__MAX_FILE_NAME_SIZE-len(file_name.split(".")[-1])-1] + "."  + file_name.split(".")[-1]
-				print(file_name)
+				if len(file_name) > self.__MAX_FILE_NAME_SIZE:
+					file_name = file_name[0:self.__MAX_FILE_NAME_SIZE-len(file_name.split(".")[-1])-1] + "."  + file_name.split(".")[-1]
+					print(file_name)
 
 
-			first_packet.store_data(bytes(file_name, 'utf-8'))
+				first_packet.store_data(bytes(file_name, 'utf-8'))
 
-			packets_to_send = 0
+				packets_to_send = 0
 
-			if self.__ps.get_file_size() % self.__ps.get_data_size_in_bytes() != 0:
-				packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3
-			else:
-				packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
-
-			first_packet.set_packets_to_send(packets_to_send)
-			first_packet.set_window_size(self.__window_size)
-
-			count += 1
-
-			first_packet.set_packet_size(self.__packet_size)
-
-			self.__buffer.put(first_packet)
-
-			thread_1 = threading.Thread(target=self.wait_for_ACK)
-			thread_2 = threading.Thread(target=self.send_files_with_SW)
-
-			thread_1.start()
-			thread_2.start()
-
-			print(binascii.hexlify(first_packet.get_data()))
-			for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
-				if self.__sender_run_flag == True:
-					self.__condition.acquire()
-					if self.__buffer.qsize() == self.__QUEUE_SIZE:
-						self.__condition.wait(timeout=2)
-						if self.__sender_run_flag == False:
-							self.__condition.notify()
-							self.__condition.release()	
-							continue
-					self.__buffer.put(self.__ps.pack_data())
-					self.__condition.notify()
-					self.__condition.release()
-					count+=1
+				if self.__ps.get_file_size() % self.__ps.get_data_size_in_bytes() != 0:
+					packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3
 				else:
-					self.__ps.close_file()
-					self.log_message_signal.emit("S-a terminat thread-ul care pune pachete in buffer mai devreme din cauza unei erori.")
+					packets_to_send = int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 2
 
-					thread_1.join()
-					thread_2.join()						
-					return
+				first_packet.set_packets_to_send(packets_to_send)
+				first_packet.set_window_size(self.__window_size)
+
+				count += 1
+
+				first_packet.set_packet_size(self.__packet_size)
+
+				self.__buffer.put(first_packet)
+
+				thread_1 = threading.Thread(target=self.wait_for_ACK)
+				thread_2 = threading.Thread(target=self.send_files_with_SW)
+
+				thread_1.start()
+				thread_2.start()
+
+				print(binascii.hexlify(first_packet.get_data()))
+				for i in range( int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 1):
+					if self.__sender_run_flag == True:
+						self.__condition.acquire()
+						if self.__buffer.qsize() == self.__QUEUE_SIZE:
+							self.__condition.wait(timeout=2)
+							if self.__sender_run_flag == False:
+								self.__condition.notify()
+								self.__condition.release()	
+								continue
+						self.__buffer.put(self.__ps.pack_data())
+						self.__condition.notify()
+						self.__condition.release()
+						count+=1
+					else:
+						self.__ps.close_file()
+						self.log_message_signal.emit("S-a terminat thread-ul care pune pachete in buffer mai devreme din cauza unei erori.")
+
+						thread_1.join()
+						thread_2.join()						
+						return
 
 
-			self.__buffer.put(self.__ps.get_end_file_packet())
+				self.__buffer.put(self.__ps.get_end_file_packet())
 
-			count += 1
+				count += 1
 
-			self.log_message_signal.emit("Numarul teoretic de pachete generate: " + str(int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3))
-			self.log_message_signal.emit("Numarul de pachete puse in buffer este: " + str(count))
+				self.log_message_signal.emit("Numarul teoretic de pachete generate: " + str(int(self.__ps.get_file_size() / self.__ps.get_data_size_in_bytes()) + 3))
+				self.log_message_signal.emit("Numarul de pachete puse in buffer este: " + str(count))
 
-			self.__ps.close_file()
-			self.log_message_signal.emit("S-a terminat thread-ul care pune pachete un buffer.")
+				self.__ps.close_file()
+				self.log_message_signal.emit("S-a terminat thread-ul care pune pachete un buffer.")
 
-			thread_1.join()
-			thread_2.join()
-		else:
-			self.log_message_signal.emit("Fisierul este prea mare pentru a putea fi trimis!")
-			self.log_message_signal.emit("Va rugam mariti dimensiunea campului de date din pachet daca se poate.")
+				thread_1.join()
+				thread_2.join()
+			else:
+				self.log_message_signal.emit("Fisierul este prea mare pentru a putea fi trimis!")
+				self.log_message_signal.emit("Va rugam mariti dimensiunea campului de date din pachet daca se poate.")
+		except Exception as e:
+			self.__sender_run_flag = False
+			self.log_message_signal.emit("send_packages_to_buffer: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
+			self.log_message_signal.emit(str(e))
+			self.__recent_packets_sent.clear()
+			self.__recent_ACK_received.clear()
+			self.__s.close()
+			return
 
 
 	def packet_timeout(self, packet_number, resend_value):
