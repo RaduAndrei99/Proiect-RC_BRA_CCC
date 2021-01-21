@@ -232,6 +232,8 @@ class SenderGUI(QWidget):
 
         self.start_sender_button.clicked.connect(self.start_sender)
 
+        self.timeout_text_field.setText("200")
+
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
