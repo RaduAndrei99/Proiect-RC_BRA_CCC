@@ -283,7 +283,7 @@ class Receiver(QObject):
 			if nr_packet == 0xFFFFFF:
 				self.log_signal.emit("Program finalizat cu succes.")
 				break
-			else:
+			elif nr_packet > self.__last_packet_received - self.__SWR_size:	# Verificam sa fie in ultima fereastra
 				self.log_signal.emit("Am primit ACK pentru pachetul cu numarul: " + str(nr_packet))
 				ack_packet.set_packet_number(nr_packet) # Trimitem ACK pentru fiecare pachet primit
 
