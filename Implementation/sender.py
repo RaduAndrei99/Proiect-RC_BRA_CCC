@@ -104,8 +104,6 @@ class Sender(QObject):
 
 		self.__resend_val = 20 #indica de cate ori se retrimite un pachet pana cand se decide sa se anuleze transmisiunea
 
-		self.__resend_error = False
-
 	def create_socket(self, af_type, sock_type):
 		check_socket(af_type, sock_type)
 		self.__s = socket.socket(af_type_dic.get(af_type), sock_type_dic.get(sock_type)) # IPV4, UDP
@@ -118,7 +116,6 @@ class Sender(QObject):
 		self.__recent_packets_sent.clear()
 		self.__recent_ACK_received.clear()
 		self.__buffer.queue.clear()
-		self.__resend_error == False
 
 		#thread_1 = threading.Thread(target=self.wait_for_ACK)
 		#thread_2 = threading.Thread(target=self.send_packages_to_buffer)
@@ -134,10 +131,11 @@ class Sender(QObject):
 		#thread_2.join()
 		#thread_3.join()
 
-		self.file_sent_signal.emit(True)
+
 		self.__sender_run_flag = False
 		self.__s.close()
-		self.log_message_signal.emit("S-a terminat thread-ul sender-ului")	
+		self.log_message_signal.emit("S-a terminat thread-ul sender-ului")
+		self.file_sent_signal.emit(True)
 
 
 	def wait_for_ACK(self):
@@ -184,6 +182,7 @@ class Sender(QObject):
 				if self.__sender_run_flag == False:
 					self.log_message_signal.emit("wait_for_ack: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
 					return
+				self.log_message_signal.emit("slowest: " + str(self.__lowest_window_package))
 				
 		except Exception as e:
 			self.log_message_signal.emit("wait_for_ack: Conexiunea s-a inchis dintr-o cauza necunoscuta.")
@@ -299,13 +298,14 @@ class Sender(QObject):
 				except Exception as e:
 					self.log_message_signal.emit("packet_timeout: " + str(e))		
 		else:
-			if self.__resend_error == False:
-				self.log_message_signal.emit("Pachetul " + str(packet_number) + " a fost retrimis de prea multe ori.")
-				self.log_message_signal.emit("Se anuleaza transmiterea fisierului.")
 
-				self.__sender_run_flag = False
+			self.log_message_signal.emit("Pachetul " + str(packet_number) + " a fost retrimis de prea multe ori.")
+			self.log_message_signal.emit("Se anuleaza transmiterea fisierului.")
 
-				self.__resend_error = True
+			self.__sender_run_flag = False
+
+			self.__s.close()
+
 			return
 
 	def send_files_with_SW(self):
@@ -423,14 +423,17 @@ class Sender(QObject):
 		return self.__sender_run_flag
 	
 	def close_sender(self):
-		if self.__sender_run_flag == True:
-			data_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.DATA)
-			data_packet.make_end_packet()
-			data_packet.set_packet_number(0xFFFFFF)
+		try:
+			if self.__sender_run_flag == True:
+				data_packet = SWPacket(self.__packet_size, self.__packet_data_size, self.__packet_header_size, packet_type=PacketType.DATA)
+				data_packet.make_end_packet()
+				data_packet.set_packet_number(0xFFFFFF)
 
-			self.__s.sendto(data_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
-			self.__sender_run_flag = False
+				self.__s.sendto(data_packet.get_data(), (self.__receiver_ip, self.__receiver_port))
+				self.__sender_run_flag = False
 
-			self.__s.close()
+				self.__s.close()
+		except Exception:
+			return
 
 from sender_window import SenderGUI
