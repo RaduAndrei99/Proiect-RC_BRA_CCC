@@ -153,7 +153,7 @@ class Receiver(QObject):
 			try:
 				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)		# Primire pachete
 			except socket.timeout:
-				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului s-a terminat.")
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " secunde al receiver-ului s-a terminat.")
 				self.__is_running = False
 				continue
 			except OSError as os:
@@ -281,10 +281,13 @@ class Receiver(QObject):
 
 		while self.__total_nr_of_packets_to_receive == self.__last_packet_received + 1:	# Trimitem ACK-uri pierdute
 			
+			self.log_signal.emit("Se asteapta pachete pentru care s-a pierdut confirmarea.")
+			self.log_signal.emit("Receiver-ul se opreste automat in " + str(socket.getdefaulttimeout()) + " secunde daca nu se primesc pachete.")
+
 			try:
 				data_readed, address = self.__s.recvfrom(self.DATA_PACKET_SIZE)
 			except socket.timeout:
-				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " al receiver-ului in partea de ACK s-a terminat.")
+				self.log_signal.emit("Timeout-ul de " + str(socket.getdefaulttimeout()) + " secunde al receiver-ului in partea de ACK s-a terminat.")
 				break
 
 			data_packet.create_packet(data_readed)
