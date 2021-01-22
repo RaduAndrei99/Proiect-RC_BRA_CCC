@@ -55,7 +55,6 @@ class Sender(QObject):
 
 	file_sent_signal = pyqtSignal(bool) #semnal pentru a transmite finalizarea transmiterii fisierului
 
-	kill_app = pyqtSignal(bool)
 	def __init__(self, snd_ip, snd_port):
 		super(Sender, self).__init__()
 		self.__sender_ip = snd_ip #ip-ul sender-ului

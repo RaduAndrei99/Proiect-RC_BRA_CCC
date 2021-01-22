@@ -108,6 +108,7 @@ class SenderGUI(QWidget):
         self.ip_text_field_1 = QtWidgets.QLineEdit(self.centralwidget)
         self.ip_text_field_1.setGeometry(QtCore.QRect(140, 50, 31, 22))
         self.ip_text_field_1.setText("")
+
         self.ip_text_field_1.setObjectName("ip_text_field_1")
         self.ip_text_field_4 = QtWidgets.QLineEdit(self.centralwidget)
         self.ip_text_field_4.setGeometry(QtCore.QRect(320, 50, 31, 22))
@@ -354,7 +355,7 @@ class SenderGUI(QWidget):
                 self.__sender.set_loopback_ip_address()
 
 
-            self.__sender.create_socket("AF_INET", "SOCK_DGRAM")
+            self.__sender.create_socket("AF_IsNET", "SOCK_DGRAM")
 
                 
             self.__thread_sender = threading.Thread(target=self.__sender.start_sender)
