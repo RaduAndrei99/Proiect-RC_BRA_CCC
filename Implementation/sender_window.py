@@ -355,7 +355,7 @@ class SenderGUI(QWidget):
                 self.__sender.set_loopback_ip_address()
 
 
-            self.__sender.create_socket("AF_IsNET", "SOCK_DGRAM")
+            self.__sender.create_socket("AF_INET", "SOCK_DGRAM")
 
                 
             self.__thread_sender = threading.Thread(target=self.__sender.start_sender)
