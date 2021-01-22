@@ -183,7 +183,7 @@ class SenderGUI(QWidget):
         self.window_size_value_label.setText("")
         self.window_size_value_label.setObjectName("window_size_value_label")
         self.label = QtWidgets.QLabel(self.centralwidget)
-        self.label.setGeometry(QtCore.QRect(10, 180, 201, 16))
+        self.label.setGeometry(QtCore.QRect(10, 180, 220, 16))
         font = QtGui.QFont()
         font.setBold(True)
         font.setWeight(75)
@@ -253,7 +253,7 @@ class SenderGUI(QWidget):
         self.port_Label.setText(_translate("MainWindow", "Portul destinatie"))
         self.set_port_button.setText(_translate("MainWindow", "Seteaza port"))
         self.start_sender_button.setText(_translate("MainWindow", "Start Sender"))
-        self.label.setText(_translate("MainWindow", "Dimensiunea pachet (octeti)"))
+        self.label.setText(_translate("MainWindow", "Dimensiunea camp date (octeti)"))
         self.test_connection_button.setText(_translate("MainWindow", "Testeaza conexiunea"))
 
         self.set_ip_in_text_field(self.__sender.get_receiver_ip())
